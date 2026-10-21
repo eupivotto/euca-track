@@ -37,7 +37,11 @@ export function useFrotaAoVivo(): { caminhoes: Caminhao[]; conexao: Conexao } {
       ws.onmessage = (evento) => {
         const msg = JSON.parse(evento.data) as MensagemFrota;
         if (msg.tipo !== "caminhao") return;
-        // Antes da carga inicial não há lista para atualizar; a carga já traz o estado atual.
+        // Sem lista ainda: se a carga inicial falhou (API reiniciando), tenta de novo.
+        if (!cliente.getQueryData(CHAVE)) {
+          if (!cliente.isFetching({ queryKey: CHAVE })) cliente.invalidateQueries({ queryKey: CHAVE });
+          return;
+        }
         cliente.setQueryData<Caminhao[]>(CHAVE, (atual) =>
           atual?.map((c) => (c.id === msg.caminhao.id ? msg.caminhao : c)),
         );

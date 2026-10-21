@@ -44,6 +44,7 @@ function renderizar() {
 beforeEach(() => {
   WsFalso.instancias = [];
   vi.stubGlobal("WebSocket", WsFalso);
+  vi.mocked(buscarCaminhoes).mockReset();
   vi.mocked(buscarCaminhoes).mockResolvedValue([caminhao("TLG1A23", "CARREGANDO", 0, { id: 1 })]);
 });
 
@@ -71,6 +72,19 @@ describe("useFrotaAoVivo", () => {
     const { result } = renderizar();
     ultimo().receber({ tipo: "caminhao", caminhao: caminhao("TLG1A23", "FILA_PATIO", 55, { id: 1 }) });
     expect(result.current.caminhoes).toEqual([]);
+  });
+
+  it("tenta a carga inicial de novo se ela falhou e o WebSocket está vivo", async () => {
+    // A página abriu com a API reiniciando: o REST falhou, depois o WebSocket conectou.
+    vi.mocked(buscarCaminhoes)
+      .mockRejectedValueOnce(new Error("502"))
+      .mockResolvedValue([caminhao("TLG1A23", "CARREGANDO", 0, { id: 1 })]);
+    const { result } = renderizar();
+    await waitFor(() => expect(buscarCaminhoes).toHaveBeenCalledTimes(1));
+    await new Promise((r) => setTimeout(r, 0));
+    ultimo().abrir();
+    ultimo().receber({ tipo: "caminhao", caminhao: caminhao("TLG1A23", "FILA_PATIO", 55, { id: 1 }) });
+    await waitFor(() => expect(result.current.caminhoes).toHaveLength(1));
   });
 
   it("mostra reconectando enquanto está fora e reconecta com espera crescente", async () => {
