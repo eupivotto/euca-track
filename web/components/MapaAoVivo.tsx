@@ -121,18 +121,27 @@ export function MapaAoVivo({
     };
   }, []);
 
-  // Cada fonte é atualizada quando seus dados mudam, depois do mapa carregar.
-  useEffect(() => {
+  // Uma fonte por efeito: a frota muda a cada 3 s, fazendas e rotas quase nunca.
+  const quandoPronto = (aplicar: (m: MapaLibre) => void) => {
     const m = mapa.current;
     if (!m) return;
-    const aplicar = () => {
-      if (fazendas) (m.getSource("fazendas") as GeoJSONSource).setData(fazendas as never);
-      if (rotas) (m.getSource("rotas") as GeoJSONSource).setData(rotas as never);
-      (m.getSource("caminhoes") as GeoJSONSource).setData(caminhoesGeo(caminhoes, selecionadoId));
-    };
-    if (pronto.current) aplicar();
-    else m.once("dados-prontos", aplicar);
-  }, [fazendas, rotas, caminhoes, selecionadoId]);
+    if (pronto.current) aplicar(m);
+    else m.once("dados-prontos", () => aplicar(m));
+  };
+
+  useEffect(() => {
+    if (fazendas) quandoPronto((m) => (m.getSource("fazendas") as GeoJSONSource).setData(fazendas as never));
+  }, [fazendas]);
+
+  useEffect(() => {
+    if (rotas) quandoPronto((m) => (m.getSource("rotas") as GeoJSONSource).setData(rotas as never));
+  }, [rotas]);
+
+  useEffect(() => {
+    quandoPronto((m) =>
+      (m.getSource("caminhoes") as GeoJSONSource).setData(caminhoesGeo(caminhoes, selecionadoId)),
+    );
+  }, [caminhoes, selecionadoId]);
 
   return (
     <div className="relative h-full min-h-[360px] bg-trilho">
