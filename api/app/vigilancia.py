@@ -21,14 +21,23 @@ def locais(sessao: Session) -> list[BaseGeometry]:
     ]
 
 
-def _parado_desde(sessao: Session, caminhao_id: int, limite_kmh: float) -> datetime | None:
-    """Primeira leitura da sequência atual de leituras abaixo do limite."""
+def _parado_desde(
+    sessao: Session, caminhao_id: int, limite_kmh: float, inicio_trecho: datetime
+) -> datetime | None:
+    """Primeira leitura da sequência atual abaixo do limite, dentro do trecho.
+
+    O tempo parado carregando ou no pátio, antes de o trecho começar, não conta.
+    """
     ultima_andando = sessao.scalar(
         select(func.max(Posicao.momento)).where(
-            Posicao.caminhao_id == caminhao_id, Posicao.velocidade_kmh >= limite_kmh
+            Posicao.caminhao_id == caminhao_id,
+            Posicao.velocidade_kmh >= limite_kmh,
+            Posicao.momento >= inicio_trecho,
         )
     )
-    consulta = select(func.min(Posicao.momento)).where(Posicao.caminhao_id == caminhao_id)
+    consulta = select(func.min(Posicao.momento)).where(
+        Posicao.caminhao_id == caminhao_id, Posicao.momento >= inicio_trecho
+    )
     if ultima_andando is not None:
         consulta = consulta.where(Posicao.momento > ultima_andando)
     return sessao.scalar(consulta)
@@ -45,8 +54,13 @@ def montar_situacao(
     """Situação na leitura atual. Chamar depois de gravar a posição e atualizar o trecho."""
     ponto = Point(leitura.lon, leitura.lat)
     parado_desde = None
-    if leitura.velocidade_kmh < settings.alerta_parada_velocidade_kmh:
-        parado_desde = _parado_desde(sessao, caminhao.id, settings.alerta_parada_velocidade_kmh)
+    if (
+        leitura.velocidade_kmh < settings.alerta_parada_velocidade_kmh
+        and caminhao.inicio_trecho is not None
+    ):
+        parado_desde = _parado_desde(
+            sessao, caminhao.id, settings.alerta_parada_velocidade_kmh, caminhao.inicio_trecho
+        )
 
     fora_seguidas, distancia_rota = 0, None
     if rota is not None and leitura.estado in EM_TRANSITO and caminhao.inicio_trecho is not None:
@@ -82,7 +96,8 @@ def _hora(momento: datetime, fuso: str) -> str:
 
 def mensagem(tipo: TipoAlerta, s: Situacao, settings: Settings) -> str:
     if tipo == TipoAlerta.VELOCIDADE:
-        return f"{round(s.velocidade_kmh)} km/h"
+        # Uma casa decimal: 80,3 arredondado para "80 km/h" pareceria dentro do limite.
+        return f"{s.velocidade_kmh:.1f}".replace(".", ",").removesuffix(",0") + " km/h"
     if tipo == TipoAlerta.PARADA:
         minutos = round((s.momento - s.parado_desde).total_seconds() / 60)
         return f"Parado há {minutos} min fora de fazenda ou fábrica"

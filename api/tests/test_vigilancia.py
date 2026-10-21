@@ -78,6 +78,22 @@ def test_parada_pela_sequencia_de_leituras(sessao, ids):
     assert alerta.mensagem == "Parado há 16 min fora de fazenda ou fábrica"
 
 
+def test_parada_ignora_o_tempo_parado_antes_do_trecho(sessao, ids):
+    # 30 min carregando (parado) e a leitura de saída ainda a 0 km/h, longe de fazenda e fábrica:
+    # o tempo de carregamento não conta como parada na estrada.
+    c, f = ids["caminhoes"][0], ids["fazenda"]
+    for i in range(0, 61):
+        enviar(sessao, c, f, "CARREGANDO", i / 2, PERTO_DO_FIM, vel=0)
+    enviar(sessao, c, f, "EM_TRANSITO_CARREGADO", 31, PERTO_DO_FIM, vel=0)
+    assert alertas(sessao, "PARADA") == []
+
+
+def test_velocidade_logo_acima_do_limite_mostra_decimal(sessao, ids):
+    c, f = ids["caminhoes"][0], ids["fazenda"]
+    enviar(sessao, c, f, "EM_TRANSITO_CARREGADO", 0, vel=80.3)
+    assert alertas(sessao, "VELOCIDADE")[0].mensagem == "80,3 km/h"
+
+
 def test_parada_volta_a_andar_fecha(sessao, ids):
     c, f = ids["caminhoes"][0], ids["fazenda"]
     for i in range(0, 40):

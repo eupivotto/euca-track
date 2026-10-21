@@ -35,6 +35,8 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://rota:rota@db:5432/rota
       TOKEN_TELEMETRIA: dev-token
+      # Para demonstrar alertas sem esperar: PROB_EVENTO_VIAGEM=1 docker compose up -d
+      PROB_EVENTO_VIAGEM: ${PROB_EVENTO_VIAGEM:-0.05}
     volumes:
       - ./api:/app
     ports:
