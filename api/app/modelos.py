@@ -73,6 +73,7 @@ class Viagem(ComId, Base):
     eta_prevista: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     status: Mapped[str] = mapped_column(String(20))
 
+    fazenda: Mapped[Fazenda] = relationship()
     eventos: Mapped[list["EventoViagem"]] = relationship(order_by="EventoViagem.momento")
 
 

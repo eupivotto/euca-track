@@ -41,8 +41,11 @@ def montar_caminhao_saida(sessao: Session, caminhao: Caminhao) -> dict:
         "estado_atual": caminhao.estado_atual,
         "viagem_atual_id": caminhao.viagem_atual_id,
         "fazenda_id": caminhao.viagem_atual.fazenda_id if caminhao.viagem_atual else None,
+        # Fazenda de origem da viagem atual (no vazio, a carga dela já foi entregue).
+        "fazenda": caminhao.viagem_atual.fazenda.nome if caminhao.viagem_atual else None,
         "carga_t": caminhao.capacidade_t if carregado else 0,
         "posicao": posicao,
+        "eta": caminhao.eta_atual.isoformat() if caminhao.eta_atual else None,
     }
 
 

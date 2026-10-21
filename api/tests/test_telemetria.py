@@ -1,9 +1,9 @@
 from datetime import datetime, timedelta, timezone
 
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 
-from app.modelos import Caminhao, EventoViagem, Fazenda, Posicao, Viagem
+from app.modelos import Caminhao, EventoViagem, Fazenda, Posicao, Rota, Viagem
 from app.telemetria import CaminhaoDesconhecido, LeituraEntrada, registrar_leituras
 
 INICIO = datetime(2026, 10, 20, 10, 0, tzinfo=timezone.utc)
@@ -31,6 +31,21 @@ def leitura_json(caminhao_id, fazenda_id, estado, minuto, velocidade=0.0):
 
 def leitura(caminhao_id, fazenda_id, estado, minuto):
     return LeituraEntrada(**leitura_json(caminhao_id, fazenda_id, estado, minuto))
+
+
+# Rota da fixture semeado_com_rota: de INICIO_ROTA (fazenda) a FIM_ROTA (fábrica), 54,2 km.
+INICIO_ROTA = (-51.95, -20.95)
+FIM_ROTA = (-51.76, -20.62)
+MEIO_ROTA = (-51.855, -20.785)
+
+
+def leitura_json_em(caminhao_id, fazenda_id, estado, minuto, ponto=MEIO_ROTA, vel=60.0):
+    lon, lat = ponto
+    return {**leitura_json(caminhao_id, fazenda_id, estado, minuto, vel), "lon": lon, "lat": lat}
+
+
+def leitura_em(caminhao_id, fazenda_id, estado, minuto, ponto=MEIO_ROTA, vel=60.0):
+    return LeituraEntrada(**leitura_json_em(caminhao_id, fazenda_id, estado, minuto, ponto, vel))
 
 
 def contar(sessao, modelo):
@@ -145,3 +160,84 @@ def test_websocket_recebe_caminhao(cliente, ids):
     assert msg["caminhao"]["id"] == c and msg["caminhao"]["placa"].startswith("TLG")
     assert msg["caminhao"]["estado_atual"] == "CARREGANDO"
     assert msg["caminhao"]["posicao"]["velocidade_kmh"] == 0
+
+
+def test_entrar_em_transito_define_trecho_e_previsto(sessao, ids):
+    c, f = ids["caminhoes"][0], ids["fazenda"]
+    registrar_leituras(sessao, [leitura(c, f, "CARREGANDO", 0)])
+    registrar_leituras(sessao, [leitura_em(c, f, "EM_TRANSITO_CARREGADO", 10, INICIO_ROTA)])
+    cam = sessao.get(Caminhao, c)
+    assert cam.inicio_trecho == INICIO + timedelta(minutes=10)
+    # 54,2 km a 60 km/h (velocidade configurada do carregado)
+    assert cam.eta_prevista == cam.inicio_trecho + timedelta(minutes=54.2)
+    assert cam.viagem_atual.eta_prevista == cam.eta_prevista
+
+
+def test_previsto_nao_muda_dentro_do_trecho(sessao, ids):
+    c, f = ids["caminhoes"][0], ids["fazenda"]
+    registrar_leituras(sessao, [leitura_em(c, f, "EM_TRANSITO_CARREGADO", 0, INICIO_ROTA)])
+    previsto = sessao.get(Caminhao, c).eta_prevista
+    registrar_leituras(sessao, [leitura_em(c, f, "EM_TRANSITO_CARREGADO", 5, vel=30)])
+    cam = sessao.get(Caminhao, c)
+    assert cam.eta_prevista == previsto and cam.inicio_trecho == INICIO
+
+
+def test_eta_atual_pela_distancia_restante(sessao, ids):
+    # Na metade da rota a 54,2 km/h: faltam 27,1 km, 30 min.
+    c, f = ids["caminhoes"][0], ids["fazenda"]
+    registrar_leituras(sessao, [leitura_em(c, f, "EM_TRANSITO_CARREGADO", 0, MEIO_ROTA, vel=54.2)])
+    cam = sessao.get(Caminhao, c)
+    assert abs((cam.eta_atual - (INICIO + timedelta(minutes=30))).total_seconds()) < 60
+
+
+def test_eta_ignora_leituras_de_antes_do_trecho(sessao, ids):
+    c, f = ids["caminhoes"][0], ids["fazenda"]
+    for m in range(5):
+        registrar_leituras(sessao, [leitura_em(c, f, "CARREGANDO", m, INICIO_ROTA, vel=0)])
+    registrar_leituras(sessao, [leitura_em(c, f, "EM_TRANSITO_CARREGADO", 5, MEIO_ROTA, vel=54.2)])
+    cam = sessao.get(Caminhao, c)
+    # Com as leituras paradas na média, a velocidade cairia ao mínimo (20 km/h) e o ETA para +81 min.
+    assert abs((cam.eta_atual - (INICIO + timedelta(minutes=35))).total_seconds()) < 60
+
+
+def test_eta_usa_so_as_ultimas_leituras(sessao, ids, settings):
+    c, f = ids["caminhoes"][0], ids["fazenda"]
+    registrar_leituras(sessao, [leitura_em(c, f, "EM_TRANSITO_CARREGADO", 0, INICIO_ROTA, vel=10)])
+    for m in range(1, settings.eta_leituras + 1):
+        registrar_leituras(sessao, [leitura_em(c, f, "EM_TRANSITO_CARREGADO", m, MEIO_ROTA, vel=54.2)])
+    cam = sessao.get(Caminhao, c)
+    momento = INICIO + timedelta(minutes=settings.eta_leituras)
+    assert abs((cam.eta_atual - (momento + timedelta(minutes=30))).total_seconds()) < 60
+
+
+def test_sair_do_transito_limpa_o_trecho(sessao, ids):
+    c, f = ids["caminhoes"][0], ids["fazenda"]
+    registrar_leituras(sessao, [leitura_em(c, f, "EM_TRANSITO_CARREGADO", 0)])
+    registrar_leituras(sessao, [leitura_em(c, f, "FILA_PATIO", 10, FIM_ROTA, vel=0)])
+    cam = sessao.get(Caminhao, c)
+    assert (cam.inicio_trecho, cam.eta_prevista, cam.eta_atual) == (None, None, None)
+
+
+def test_trecho_sem_rota_fica_sem_eta(sessao, ids):
+    c, f = ids["caminhoes"][0], ids["fazenda"]
+    sessao.execute(delete(Rota).where(Rota.fazenda_id == f))
+    registrar_leituras(sessao, [leitura_em(c, f, "EM_TRANSITO_CARREGADO", 0)])
+    cam = sessao.get(Caminhao, c)
+    assert cam.inicio_trecho == INICIO and cam.eta_prevista is None and cam.eta_atual is None
+
+
+def test_vazio_usa_a_rota_ao_contrario(sessao, ids):
+    # Vazio saindo da fábrica (fim da linha): falta a rota inteira, a 70 km/h previstos.
+    c, f = ids["caminhoes"][0], ids["fazenda"]
+    registrar_leituras(sessao, [leitura_em(c, f, "EM_TRANSITO_VAZIO", 0, FIM_ROTA, vel=54.2)])
+    cam = sessao.get(Caminhao, c)
+    assert abs((cam.eta_atual - (INICIO + timedelta(minutes=60))).total_seconds()) < 60
+    assert cam.eta_prevista == INICIO + timedelta(minutes=54.2 / 70 * 60)
+
+
+def test_caminhao_saida_tem_eta_e_fazenda(cliente, ids):
+    c, f = ids["caminhoes"][0], ids["fazenda"]
+    corpo = [leitura_json(c, f, "CARREGANDO", 0), leitura_json_em(c, f, "EM_TRANSITO_CARREGADO", 1)]
+    cliente.post("/telemetria", json=corpo, headers=CABECALHO)
+    saida = next(x for x in cliente.get("/caminhoes").json() if x["id"] == c)
+    assert saida["eta"] is not None and saida["fazenda"].startswith("Fazenda")
