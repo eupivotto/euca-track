@@ -20,6 +20,7 @@ def run_migrations_online() -> None:
         context.configure(connection=conexao, target_metadata=target_metadata)
         with context.begin_transaction():
             context.run_migrations()
+    engine.dispose()
 
 
 run_migrations_online()

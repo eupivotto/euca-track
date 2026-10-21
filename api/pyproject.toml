@@ -23,3 +23,5 @@ pythonpath = ["."]
 testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+# Aviso do próprio Starlette sobre o TestClient; não é do nosso código.
+filterwarnings = ["ignore:Using `httpx` with `starlette.testclient`"]
