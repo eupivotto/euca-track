@@ -48,3 +48,18 @@ def test_idempotente(sessao, settings):
     assert sessao.scalar(select(func.count()).select_from(Rota)) == 8
     # a segunda execução substituiu as linhas retas pela rota do OSRM
     assert sessao.scalar(select(func.min(func.ST_NPoints(Rota.geom)))) > 2
+
+
+def test_somente_faltantes_nao_consulta_quem_ja_tem_rota(sessao, settings):
+    # Usado na subida do compose: reiniciar não pode bater no OSRM de novo.
+    semear(sessao, settings)
+    gerar_rotas(sessao, settings, cliente_que_responde(200, AMOSTRA), dormir=lambda s: None)
+    pedidos = []
+
+    def conta(req):
+        pedidos.append(req)
+        return httpx.Response(200, text=AMOSTRA)
+
+    cliente = httpx.Client(transport=httpx.MockTransport(conta))
+    gerar_rotas(sessao, settings, cliente, dormir=lambda s: None, somente_faltantes=True)
+    assert pedidos == []

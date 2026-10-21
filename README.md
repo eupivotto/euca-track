@@ -10,14 +10,11 @@ Precisa de Docker.
 
 ```bash
 docker compose up -d --build
-docker compose exec api alembic upgrade head
-docker compose exec api python -m app.seed
-docker compose exec api python -m app.scripts.gerar_rotas
 ```
 
-Depois abra http://localhost/. O simulador espera as rotas existirem e começa sozinho.
+Depois abra http://localhost/. Na subida, o serviço `preparo` aplica as migrações, cria os dados simulados e calcula as rotas que faltarem; a API só começa depois dele, e o simulador começa sozinho em seguida.
 
-O script de rotas consulta o servidor público do OSRM uma vez por fazenda; se ele não responder, usa uma linha reta como aproximação e avisa.
+As rotas vêm do servidor público do OSRM, uma consulta por fazenda, só na primeira subida. Se ele não responder, cada rota vira uma linha reta aproximada (com aviso em `docker compose logs preparo`). Para recalcular todas: `docker compose exec api python -m app.scripts.gerar_rotas`.
 
 ## Testes
 

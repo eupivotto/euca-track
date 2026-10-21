@@ -1,6 +1,9 @@
 """Calcula e salva a rota de cada fazenda até a fábrica (SPEC seção 5).
 
-Uso: python -m app.scripts.gerar_rotas
+Uso: python -m app.scripts.gerar_rotas [--faltantes]
+
+Com --faltantes, só calcula as fazendas que ainda não têm rota (é o que a
+subida do compose roda).
 
 Respeita a política do servidor de demonstração do OSRM: User-Agent do
 projeto, uma requisição por vez e 1 s entre requisições. Se uma rota não
@@ -28,12 +31,16 @@ def gerar_rotas(
     settings: Settings,
     cliente: httpx.Client,
     dormir: Callable[[float], None] = time.sleep,
+    somente_faltantes: bool = False,
 ) -> list[str]:
     fabrica = to_shape(sessao.scalars(select(Fabrica.geom)).one())
     destino = (fabrica.x, fabrica.y)
     avisos: list[str] = []
 
-    fazendas = sessao.scalars(select(Fazenda).order_by(Fazenda.id)).all()
+    consulta = select(Fazenda).order_by(Fazenda.id)
+    if somente_faltantes:
+        consulta = consulta.where(~Fazenda.id.in_(select(Rota.fazenda_id)))
+    fazendas = sessao.scalars(consulta).all()
     for i, fazenda in enumerate(fazendas):
         if i > 0:
             dormir(PAUSA_ENTRE_REQUISICOES_S)
@@ -59,11 +66,14 @@ def gerar_rotas(
 
 
 if __name__ == "__main__":
+    import sys
+
     from app.db import SessionLocal
 
     configuracao = get_settings()
     with SessionLocal() as s, httpx.Client(timeout=20) as http:
-        for aviso in gerar_rotas(s, configuracao, http):
+        faltantes = "--faltantes" in sys.argv
+        for aviso in gerar_rotas(s, configuracao, http, somente_faltantes=faltantes):
             print(f"Aviso: {aviso}")
         s.commit()
     print("Rotas salvas.")

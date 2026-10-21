@@ -23,11 +23,11 @@ Painel de operações florestais em tempo real: logística de madeira (fazendas 
 
 ## Comandos (manter atualizados conforme o projeto evolui)
 
-- Subir tudo: `docker compose up -d --build`
+- Subir tudo: `docker compose up -d --build` (o serviço `preparo` roda migrações, seed e rotas faltantes antes da API)
 - Testes da API: `docker compose exec api pytest`
 - Testes do simulador: `docker compose exec simulator pytest`
 - Testes do front: `cd web && npm test`
 - Migrações: `docker compose exec api alembic upgrade head`
 - Seed: `docker compose exec api python -m app.seed`
-- Rotas fazenda → fábrica (OSRM, uma vez após o seed): `docker compose exec api python -m app.scripts.gerar_rotas`
+- Recalcular todas as rotas fazenda → fábrica (OSRM): `docker compose exec api python -m app.scripts.gerar_rotas`
 - Painel: http://localhost/ (Nginx: `/api/` → API, `/ws/` → WebSocket, `/` → web)
