@@ -11,6 +11,14 @@ export function toneladasComSinal(valor: number): string {
   return `${sinal}${Math.abs(arredondado).toLocaleString("pt-BR")} t`;
 }
 
+/** "38 min" abaixo de uma hora, "4h12" a partir dela, "—" sem valor. */
+export function duracao(minutos: number | null): string {
+  if (minutos === null) return "—";
+  const total = Math.round(minutos);
+  if (total < 60) return `${total} min`;
+  return `${Math.floor(total / 60)}h${String(total % 60).padStart(2, "0")}`;
+}
+
 /** "14h30", no horário de Campo Grande. */
 export function horaCurta(iso: string): string {
   const partes = new Intl.DateTimeFormat("pt-BR", {

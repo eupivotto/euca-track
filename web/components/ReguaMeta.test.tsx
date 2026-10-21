@@ -8,6 +8,19 @@ const DIA = {
   agora: "2026-10-20T14:30:00-04:00",
   viagens: 46,
   meta_t: 4000,
+  dias: 1,
+  ciclo_medio_min: null,
+  fila_media_min: null,
+  uso_frota: 0.8,
+  frota_por_estado: {
+    CARREGANDO: 4,
+    EM_TRANSITO_CARREGADO: 6,
+    FILA_PATIO: 4,
+    PESAGEM: 1,
+    DESCARGA: 2,
+    EM_TRANSITO_VAZIO: 3,
+  },
+  serie: [],
 };
 
 describe("ReguaMeta", () => {
@@ -31,8 +44,14 @@ describe("ReguaMeta", () => {
     expect(barra).toHaveAttribute("aria-valuemax", "4000");
   });
 
-  it("ciclo médio e espera ficam para a Fase 2", () => {
+  it("sem viagens, ciclo médio e espera aparecem como travessão", () => {
     render(<ReguaMeta indicadores={{ ...DIA, toneladas: 0 }} />);
     expect(screen.getAllByText("—")).toHaveLength(2);
+  });
+
+  it("mostra ciclo médio e espera no pátio", () => {
+    render(<ReguaMeta indicadores={{ ...DIA, toneladas: 0, ciclo_medio_min: 252, fila_media_min: 38 }} />);
+    expect(screen.getByText("4h12")).toBeInTheDocument();
+    expect(screen.getByText("38 min")).toBeInTheDocument();
   });
 });

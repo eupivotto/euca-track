@@ -26,3 +26,15 @@ describe("ordenarFrota", () => {
     expect(lista[0].placa).toBe("TLG2");
   });
 });
+
+describe("ordenarFrota na Fase 2", () => {
+  it("alerta primeiro, depois em trânsito por ETA, depois o resto", () => {
+    const lista = ordenarFrota([
+      c("TLG1A04", "FILA_PATIO", 55),
+      c("TLG1A01", "EM_TRANSITO_CARREGADO", 55, { eta: "2026-10-20T15:00:00-04:00" }),
+      c("TLG1A02", "EM_TRANSITO_VAZIO", 0, { eta: "2026-10-20T14:00:00-04:00" }),
+      c("TLG1A03", "CARREGANDO", 0, { alertas_abertos: ["PARADA"] }),
+    ]);
+    expect(lista.map((x) => x.placa)).toEqual(["TLG1A03", "TLG1A02", "TLG1A01", "TLG1A04"]);
+  });
+});

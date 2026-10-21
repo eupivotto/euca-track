@@ -36,6 +36,12 @@ export function useFrotaAoVivo(): { caminhoes: Caminhao[]; conexao: Conexao } {
       };
       ws.onmessage = (evento) => {
         const msg = JSON.parse(evento.data) as MensagemFrota;
+        if (msg.tipo === "alerta") {
+          // O caminhão já chega com alertas_abertos; as telas de alertas e do pátio recarregam.
+          cliente.invalidateQueries({ queryKey: ["alertas"] });
+          cliente.invalidateQueries({ queryKey: ["patio"] });
+          return;
+        }
         if (msg.tipo !== "caminhao") return;
         // Sem lista ainda: se a carga inicial falhou (API reiniciando), tenta de novo.
         if (!cliente.getQueryData(CHAVE)) {

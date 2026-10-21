@@ -34,8 +34,7 @@ class WsFalso {
 
 const ultimo = () => WsFalso.instancias[WsFalso.instancias.length - 1];
 
-function renderizar() {
-  const cliente = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+function renderizar(cliente = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
   return renderHook(() => useFrotaAoVivo(), {
     wrapper: ({ children }) => <QueryClientProvider client={cliente}>{children}</QueryClientProvider>,
   });
@@ -85,6 +84,26 @@ describe("useFrotaAoVivo", () => {
     ultimo().abrir();
     ultimo().receber({ tipo: "caminhao", caminhao: caminhao("TLG1A23", "FILA_PATIO", 55, { id: 1 }) });
     await waitFor(() => expect(result.current.caminhoes).toHaveLength(1));
+  });
+
+  it("mensagem de alerta invalida as listas de alertas e do pátio", async () => {
+    const cliente = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidar = vi.spyOn(cliente, "invalidateQueries");
+    const { result } = renderizar(cliente);
+    await waitFor(() => expect(result.current.caminhoes).toHaveLength(1));
+    ultimo().abrir();
+    ultimo().receber({
+      tipo: "alerta",
+      alerta: {
+        id: 1, tipo: "PARADA", caminhao_id: 1, placa: "TLG1A23", fazenda_id: null, fazenda: null,
+        mensagem: "Parado há 16 min fora de fazenda ou fábrica", aberto_em: "2026-10-20T14:00:00Z",
+        fechado_em: null, status: "ABERTO",
+      },
+    });
+    expect(invalidar).toHaveBeenCalledWith({ queryKey: ["alertas"] });
+    expect(invalidar).toHaveBeenCalledWith({ queryKey: ["patio"] });
+    // A frota não muda com a mensagem de alerta.
+    expect(result.current.caminhoes[0].estado_atual).toBe("CARREGANDO");
   });
 
   it("mostra reconectando enquanto está fora e reconecta com espera crescente", async () => {

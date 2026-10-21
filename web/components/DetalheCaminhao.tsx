@@ -1,4 +1,6 @@
-import { toneladas } from "@/lib/formato";
+import Link from "next/link";
+import { ROTULO_ALERTA } from "@/lib/estados";
+import { horaCurta, toneladas } from "@/lib/formato";
 import type { Caminhao } from "@/lib/tipos";
 import { MarcaEstado } from "./TabelaFrota";
 
@@ -12,6 +14,7 @@ function Linha({ rotulo, children }: { rotulo: string; children: React.ReactNode
 }
 
 export function DetalheCaminhao({ caminhao, onVoltar }: { caminhao: Caminhao; onVoltar: () => void }) {
+  const alertas = caminhao.alertas_abertos.map((t) => ROTULO_ALERTA[t]).join(", ");
   return (
     <div className="numeros p-4">
       <button
@@ -28,6 +31,7 @@ export function DetalheCaminhao({ caminhao, onVoltar }: { caminhao: Caminhao; on
         <Linha rotulo="Estado">
           <MarcaEstado caminhao={caminhao} />
         </Linha>
+        <Linha rotulo="Fazenda de origem">{caminhao.fazenda ?? "—"}</Linha>
         <Linha rotulo="Carga">
           {caminhao.carga_t > 0 ? toneladas(caminhao.carga_t) : "—"}
         </Linha>
@@ -35,7 +39,19 @@ export function DetalheCaminhao({ caminhao, onVoltar }: { caminhao: Caminhao; on
         <Linha rotulo="Velocidade">
           {caminhao.posicao ? `${Math.round(caminhao.posicao.velocidade_kmh)} km/h` : "—"}
         </Linha>
+        <Linha rotulo="ETA">{caminhao.eta ? horaCurta(caminhao.eta) : "—"}</Linha>
+        <Linha rotulo="Alertas abertos">
+          {alertas ? <span className="font-semibold text-atencao">{alertas}</span> : "Nenhum"}
+        </Linha>
       </dl>
+      {caminhao.viagem_atual_id !== null && (
+        <Link
+          href={`/replay?viagem=${caminhao.viagem_atual_id}`}
+          className="mt-4 inline-block rounded-md px-2 py-1 -ml-2 text-primaria hover:bg-fundo-sutil"
+        >
+          Ver viagem no replay
+        </Link>
+      )}
     </div>
   );
 }

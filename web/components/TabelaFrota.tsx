@@ -1,5 +1,5 @@
 import { MARCADOR_ESTADO, ROTULO_ESTADO } from "@/lib/estados";
-import { toneladas } from "@/lib/formato";
+import { horaCurta, toneladas } from "@/lib/formato";
 import { ordenarFrota } from "@/lib/ordenarFrota";
 import type { Caminhao } from "@/lib/tipos";
 
@@ -32,6 +32,7 @@ export function TabelaFrota({
           <th className="border-b border-linha px-3 py-2 font-medium">Placa</th>
           <th className="border-b border-linha px-3 py-2 font-medium">Estado</th>
           <th className="border-b border-linha px-3 py-2 text-right font-medium">Carga</th>
+          <th className="border-b border-linha px-3 py-2 text-right font-medium">ETA</th>
         </tr>
       </thead>
       <tbody>
@@ -41,7 +42,11 @@ export function TabelaFrota({
             tabIndex={0}
             onClick={() => onSelecionar(c.id)}
             onKeyDown={(e) => e.key === "Enter" && onSelecionar(c.id)}
-            className="cursor-pointer hover:bg-fundo-sutil focus-visible:bg-fundo-sutil"
+            className={
+              c.alertas_abertos.length > 0
+                ? "cursor-pointer bg-atencao-fundo hover:bg-atencao-fundo/70"
+                : "cursor-pointer hover:bg-fundo-sutil focus-visible:bg-fundo-sutil"
+            }
           >
             <td className="border-b border-linha-fraca px-3 py-[7px] font-medium">{c.placa}</td>
             <td className="border-b border-linha-fraca px-3 py-[7px]">
@@ -49,6 +54,9 @@ export function TabelaFrota({
             </td>
             <td className="border-b border-linha-fraca px-3 py-[7px] text-right">
               {c.carga_t > 0 ? toneladas(c.carga_t) : "—"}
+            </td>
+            <td className="border-b border-linha-fraca px-3 py-[7px] text-right">
+              {c.eta ? horaCurta(c.eta) : "—"}
             </td>
           </tr>
         ))}

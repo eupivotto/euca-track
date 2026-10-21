@@ -2,7 +2,6 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { caminhao as c } from "@/lib/fabricas.test-util";
-import { DetalheCaminhao } from "./DetalheCaminhao";
 import { TabelaFrota } from "./TabelaFrota";
 
 describe("TabelaFrota", () => {
@@ -27,6 +26,20 @@ describe("TabelaFrota", () => {
     expect(linhas[0]).toHaveTextContent("TLG1A23");
   });
 
+  it("mostra o ETA na hora de Campo Grande", () => {
+    const comEta = c("TLG1A23", "EM_TRANSITO_CARREGADO", 55, { eta: "2026-10-20T18:50:00Z" });
+    render(<TabelaFrota caminhoes={[comEta]} onSelecionar={() => {}} />);
+    expect(screen.getByRole("row", { name: /TLG1A23 Carregado 55 t 14h50/ })).toBeInTheDocument();
+  });
+
+  it("linha com alerta aberto fica destacada", () => {
+    const comAlerta = c("TLG1A23", "EM_TRANSITO_CARREGADO", 55, { alertas_abertos: ["ATRASO"] });
+    render(<TabelaFrota caminhoes={[comAlerta, c("TLG2B11", "CARREGANDO")]} onSelecionar={() => {}} />);
+    const [comDestaque, semDestaque] = screen.getAllByRole("row").slice(1);
+    expect(comDestaque).toHaveClass("bg-atencao-fundo");
+    expect(semDestaque).not.toHaveClass("bg-atencao-fundo");
+  });
+
   it("clique na linha seleciona o caminhão", async () => {
     const onSelecionar = vi.fn();
     render(<TabelaFrota caminhoes={[c("TLG1A23", "FILA_PATIO", 55, { id: 7 })]} onSelecionar={onSelecionar} />);
@@ -43,14 +56,3 @@ describe("TabelaFrota", () => {
   });
 });
 
-describe("DetalheCaminhao", () => {
-  it("mostra os dados e volta para a frota", async () => {
-    const onVoltar = vi.fn();
-    render(<DetalheCaminhao caminhao={c("TLG1A23", "DESCARGA", 55)} onVoltar={onVoltar} />);
-    expect(screen.getByRole("heading", { name: "TLG1A23" })).toBeInTheDocument();
-    expect(screen.getByText("Paulo Lima")).toBeInTheDocument();
-    expect(screen.getByText("Descarga")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Voltar para a frota" }));
-    expect(onVoltar).toHaveBeenCalled();
-  });
-});

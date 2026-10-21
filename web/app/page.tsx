@@ -2,7 +2,8 @@
 
 import { useQuery } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 import { AvisoConexao } from "@/components/AvisoConexao";
 import { BarraTopo } from "@/components/BarraTopo";
 import { DetalheCaminhao } from "@/components/DetalheCaminhao";
@@ -17,16 +18,28 @@ const MapaAoVivo = dynamic(() => import("@/components/MapaAoVivo").then((m) => m
   loading: () => <div className="h-full min-h-[360px] bg-trilho" />,
 });
 
-export default function AoVivo() {
+// "Ver no mapa" da tela de alertas abre com ?caminhao=<id> selecionado.
+export default function Pagina() {
+  return (
+    <Suspense>
+      <AoVivo />
+    </Suspense>
+  );
+}
+
+function AoVivo() {
+  const parametros = useSearchParams();
   const { caminhoes, conexao } = useFrotaAoVivo();
   const fazendas = useQuery({ queryKey: ["fazendas"], queryFn: buscarFazendas, staleTime: Infinity });
   const rotas = useQuery({ queryKey: ["rotas"], queryFn: buscarRotas, staleTime: Infinity });
   const indicadores = useQuery({
-    queryKey: ["indicadores"],
-    queryFn: buscarIndicadores,
+    queryKey: ["indicadores", 1],
+    queryFn: () => buscarIndicadores(1),
     refetchInterval: 30_000,
   });
-  const [selecionadoId, setSelecionadoId] = useState<number | null>(null);
+  const [selecionadoId, setSelecionadoId] = useState<number | null>(
+    () => Number(parametros.get("caminhao")) || null,
+  );
   const selecionado = caminhoes.find((c) => c.id === selecionadoId);
 
   return (

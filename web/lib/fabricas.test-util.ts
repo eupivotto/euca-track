@@ -18,6 +18,9 @@ export function caminhao(
     fazenda_id: null,
     carga_t,
     posicao: null,
+    eta: null,
+    fazenda: null,
+    alertas_abertos: [],
     ...extra,
   };
 }

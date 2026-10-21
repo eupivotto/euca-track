@@ -1,4 +1,11 @@
-import type { Estado } from "./tipos";
+import type { Estado, TipoAlerta } from "./tipos";
+
+export const ROTULO_ALERTA: Record<TipoAlerta, string> = {
+  ATRASO: "Atraso",
+  PARADA: "Parada",
+  DESVIO_ROTA: "Desvio de rota",
+  VELOCIDADE: "Velocidade",
+};
 
 // Rótulos pelo que quem acompanha a frota entende, não pelo nome do enum.
 export const ROTULO_ESTADO: Record<Estado, string> = {

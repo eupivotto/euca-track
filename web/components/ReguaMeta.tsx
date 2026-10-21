@@ -1,4 +1,4 @@
-import { horaCurta, toneladas, toneladasComSinal } from "@/lib/formato";
+import { duracao, horaCurta, toneladas, toneladasComSinal } from "@/lib/formato";
 import { esperadoAgora, fracao } from "@/lib/regua";
 import type { Indicadores } from "@/lib/tipos";
 
@@ -24,8 +24,8 @@ export function ReguaMeta({ indicadores }: { indicadores: Indicadores }) {
         <span className="text-sm text-tinta-suave">entregues de {toneladas(meta_t)}</span>
         <div className="ml-auto flex gap-7">
           <Numero valor={toneladasComSinal(entregue - esperado)} rotulo={`contra o esperado às ${horaCurta(agora)}`} />
-          <Numero valor="—" rotulo="ciclo médio" />
-          <Numero valor="—" rotulo="espera no pátio" />
+          <Numero valor={duracao(indicadores.ciclo_medio_min)} rotulo="ciclo médio" />
+          <Numero valor={duracao(indicadores.fila_media_min)} rotulo="espera no pátio" />
         </div>
       </div>
       <div
