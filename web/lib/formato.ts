@@ -19,14 +19,31 @@ export function duracao(minutos: number | null): string {
   return `${Math.floor(total / 60)}h${String(total % 60).padStart(2, "0")}`;
 }
 
-/** "14h30", no horário de Campo Grande. */
-export function horaCurta(iso: string): string {
-  const partes = new Intl.DateTimeFormat("pt-BR", {
+function partes(iso: string) {
+  const lista = new Intl.DateTimeFormat("pt-BR", {
     timeZone: FUSO,
+    day: "2-digit",
+    month: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
     hourCycle: "h23",
   }).formatToParts(new Date(iso));
-  const valor = (tipo: string) => partes.find((p) => p.type === tipo)?.value ?? "";
+  return (tipo: string) => lista.find((p) => p.type === tipo)?.value ?? "";
+}
+
+/** "14h30", no horário de Campo Grande. */
+export function horaCurta(iso: string): string {
+  const valor = partes(iso);
   return `${valor("hour")}h${valor("minute")}`;
+}
+
+/** "14h", para rótulos de hora cheia. */
+export function horaCheia(iso: string): string {
+  return `${partes(iso)("hour")}h`;
+}
+
+/** "19/10", no horário de Campo Grande. */
+export function diaCurto(iso: string): string {
+  const valor = partes(iso);
+  return `${valor("day")}/${valor("month")}`;
 }
