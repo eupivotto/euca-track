@@ -28,17 +28,19 @@ As rotas vêm do servidor público do OSRM, uma consulta por fazenda, só na pri
 
 A API avalia cada leitura de telemetria e abre um alerta por tipo e caminhão, que fecha sozinho quando a condição passa:
 
-- **Atraso** — o ETA atual passa da chegada prevista do trecho em mais de 20%.
+- **Atraso** — o ETA atual passa da chegada prevista do trecho em mais de 20% (avaliado depois dos 10 primeiros minutos do trecho).
 - **Parada** — abaixo de 5 km/h por mais de 15 min na estrada, a mais de 500 m de fazenda ou fábrica.
 - **Desvio de rota** — duas leituras seguidas a mais de 500 m da rota.
 - **Velocidade** — acima de 80 km/h.
 
-Os limites ficam em `api/app/config.py`. O simulador faz uma parada não prevista em 5% das viagens; para ver alertas sem esperar, suba com todas as viagens parando e depois volte ao normal:
+Os limites ficam em `api/app/config.py`. O simulador faz uma parada não prevista em 5% das viagens. Para ver alertas sem esperar, suba a API com todas as viagens parando e reinicie o simulador, que só lê os parâmetros ao começar (o reinício interrompe as viagens em andamento):
 
 ```bash
 PROB_EVENTO_VIAGEM=1 docker compose up -d
-docker compose up -d
+docker compose restart simulator
 ```
+
+Para voltar ao normal, repita sem a variável: `docker compose up -d` e `docker compose restart simulator`.
 
 ## Testes
 
