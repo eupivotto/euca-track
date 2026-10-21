@@ -13,8 +13,8 @@ CABECALHO = {"X-Token": "dev-token"}
 @pytest.fixture
 def ids(semeado_com_rota):
     caminhoes = semeado_com_rota.scalars(select(Caminhao.id).order_by(Caminhao.id)).all()
-    fazenda = semeado_com_rota.scalars(select(Fazenda.id).order_by(Fazenda.id)).first()
-    return {"caminhoes": caminhoes, "fazenda": fazenda}
+    fazendas = semeado_com_rota.scalars(select(Fazenda.id).order_by(Fazenda.id)).all()
+    return {"caminhoes": caminhoes, "fazenda": fazendas[0], "outra_fazenda": fazendas[1]}
 
 
 def leitura_json(caminhao_id, fazenda_id, estado, minuto, velocidade=0.0):
@@ -64,6 +64,25 @@ def test_reinicio_mesmo_estado_nao_duplica_viagem(sessao, ids):
     registrar_leituras(sessao, [leitura(c, f, "CARREGANDO", 0)])
     registrar_leituras(sessao, [leitura(c, f, "CARREGANDO", 1)])  # simulador reiniciado
     assert contar(sessao, Viagem) == 1
+
+
+def test_reinicio_durante_descarga_interrompe_viagem(sessao, ids):
+    # Simulador reiniciado com o caminhão na descarga: a carga não foi entregue.
+    c, f = ids["caminhoes"][0], ids["fazenda"]
+    for i, e in enumerate(["CARREGANDO", "EM_TRANSITO_CARREGADO", "DESCARGA", "CARREGANDO"]):
+        registrar_leituras(sessao, [leitura(c, f, e, i * 10)])
+    viagens = sessao.scalars(select(Viagem).order_by(Viagem.id)).all()
+    assert [v.status for v in viagens] == ["INTERROMPIDA", "EM_ANDAMENTO"]
+
+
+def test_reinicio_carregando_em_outra_fazenda_abre_viagem_nova(sessao, ids):
+    c = ids["caminhoes"][0]
+    registrar_leituras(sessao, [leitura(c, ids["fazenda"], "CARREGANDO", 0)])
+    registrar_leituras(sessao, [leitura(c, ids["outra_fazenda"], "CARREGANDO", 1)])
+    viagens = sessao.scalars(select(Viagem).order_by(Viagem.id)).all()
+    assert [v.status for v in viagens] == ["INTERROMPIDA", "EM_ANDAMENTO"]
+    assert viagens[1].fazenda_id == ids["outra_fazenda"]
+    assert sessao.get(Caminhao, c).viagem_atual_id == viagens[1].id
 
 
 def test_primeira_leitura_no_meio_do_ciclo_abre_viagem(sessao, ids):

@@ -30,7 +30,9 @@ class CaminhaoDesconhecido(Exception):
 def _abrir_viagem(sessao: Session, caminhao: Caminhao, fazenda_id: int, momento: datetime) -> None:
     if caminhao.viagem_atual is not None:
         caminhao.viagem_atual.fim = momento
-        caminhao.viagem_atual.status = "CONCLUIDA"
+        # Só entregou quem já saiu vazio da fábrica; o resto foi cortado por um reinício.
+        entregou = caminhao.estado_atual == Estado.EM_TRANSITO_VAZIO
+        caminhao.viagem_atual.status = "CONCLUIDA" if entregou else "INTERROMPIDA"
     rota_id = sessao.scalar(select(Rota.id).where(Rota.fazenda_id == fazenda_id))
     viagem = Viagem(
         caminhao_id=caminhao.id,
@@ -57,10 +59,12 @@ def registrar_leituras(sessao: Session, leituras: list[LeituraEntrada]) -> list[
     atualizados: list[int] = []
     for leitura in leituras:
         caminhao = caminhoes[leitura.caminhao_id]
-        comecou_a_carregar = (
-            leitura.estado == Estado.CARREGANDO and caminhao.estado_atual != Estado.CARREGANDO
+        viagem = caminhao.viagem_atual
+        comecou_a_carregar = leitura.estado == Estado.CARREGANDO and (
+            caminhao.estado_atual != Estado.CARREGANDO
+            or (viagem is not None and viagem.fazenda_id != leitura.fazenda_id)
         )
-        if comecou_a_carregar or caminhao.viagem_atual is None:
+        if comecou_a_carregar or viagem is None:
             _abrir_viagem(sessao, caminhao, leitura.fazenda_id, leitura.momento)
 
         if leitura.estado != caminhao.estado_atual:
