@@ -32,7 +32,10 @@ services:
 
   simulator:
     build: ./simulator
-    command: sleep infinity
+    command: python -m sim
+    environment:
+      API_URL: http://api:8000
+      TOKEN_TELEMETRIA: dev-token
     volumes:
       - ./simulator:/app
     depends_on:
