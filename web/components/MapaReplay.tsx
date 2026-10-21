@@ -51,6 +51,9 @@ export function MapaReplay({ viagem, cursor }: { viagem: ViagemDetalhe; cursor: 
     });
     m.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
     m.on("load", () => {
+      // O contêiner pode ganhar altura depois de criado o mapa: enquadra de novo com o tamanho final.
+      m.resize();
+      m.fitBounds(limites, { padding: 48, duration: 0 });
       const vazio = { type: "FeatureCollection" as const, features: [] };
       m.addSource("rota", { type: "geojson", data: viagem.rota ? linha(viagem.rota.coordinates) : vazio });
       m.addSource("percorrido", { type: "geojson", data: vazio });
