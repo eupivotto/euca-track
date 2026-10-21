@@ -6,6 +6,7 @@ intervalo_telemetria_s segundos simulados e envia um lote para a API.
 import logging
 import os
 import time
+from collections.abc import Callable
 from datetime import datetime, timezone
 
 import httpx
@@ -28,6 +29,25 @@ def aguardar_api(cliente: ClienteApi) -> None:
         time.sleep(ESPERA_INICIAL_S)
 
 
+def iniciar(
+    cliente: ClienteApi,
+    agora: Callable[[], datetime],
+    esperar: Callable[[float], None] = time.sleep,
+) -> Simulacao:
+    """Monta a simulação com os dados da API, tentando de novo se ela cair no meio."""
+    while True:
+        try:
+            return Simulacao(
+                cliente.parametros(),
+                cliente.fazendas(),
+                cliente.caminhoes(),
+                cliente.relogio_inicial(agora()),
+            )
+        except httpx.HTTPError as erro:
+            log.warning("Falha ao ler os dados iniciais: %s", erro)
+            esperar(ESPERA_INICIAL_S)
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     logging.getLogger("httpx").setLevel(logging.WARNING)  # sem uma linha por lote enviado
@@ -35,13 +55,8 @@ def main() -> None:
     cliente = ClienteApi(http, token=os.environ.get("TOKEN_TELEMETRIA", "dev-token"))
     aguardar_api(cliente)
 
-    parametros = cliente.parametros()
-    simulacao = Simulacao(
-        parametros,
-        cliente.fazendas(),
-        cliente.caminhoes(),
-        cliente.relogio_inicial(datetime.now(timezone.utc)),
-    )
+    simulacao = iniciar(cliente, lambda: datetime.now(timezone.utc))
+    parametros = simulacao.p
     passo_min = parametros.intervalo_telemetria_s / 60
     pausa_s = parametros.intervalo_telemetria_s / parametros.fator_tempo
     log.info("Simulando %d caminhões, um lote a cada %.1f s", len(simulacao.caminhoes), pausa_s)
