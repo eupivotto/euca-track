@@ -136,7 +136,8 @@ export function MapaAoVivo({
 
   return (
     <div className="relative h-full min-h-[360px] bg-trilho">
-      <div ref={container} className="absolute inset-0" aria-label="Mapa da frota" role="region" />
+      {/* O CSS do MapLibre fixa position: relative em .maplibregl-map, então o tamanho vem de h-full. */}
+      <div ref={container} className="h-full w-full" aria-label="Mapa da frota" role="region" />
       <Legenda />
     </div>
   );
