@@ -21,6 +21,8 @@ CAMPOS_SIMULACAO = (
     "intervalo_telemetria_s",
     "fator_tempo",
     "prob_evento_viagem",
+    "parada_min_min",
+    "parada_max_min",
 )
 
 

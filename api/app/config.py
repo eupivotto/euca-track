@@ -32,6 +32,19 @@ class Settings(BaseSettings):
     fator_tempo: float = 10
     meta_diaria_t: float = 4000
     prob_evento_viagem: float = 0.05
+    parada_min_min: float = 20  # duração da parada não prevista (padrão do plano da Fase 2)
+    parada_max_min: float = 40
+
+    # Alertas de logística e ETA (SPEC seção 6)
+    alerta_atraso_tolerancia: float = 0.20
+    alerta_parada_velocidade_kmh: float = 5
+    alerta_parada_min: float = 15
+    alerta_raio_local_m: float = 500
+    alerta_desvio_m: float = 500
+    alerta_desvio_leituras: int = 2
+    alerta_velocidade_max_kmh: float = 80
+    eta_leituras: int = 10
+    eta_velocidade_min_kmh: float = 20
 
     # Rotas (SPEC seção 5)
     osrm_url: str = "https://router.project-osrm.org"
