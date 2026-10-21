@@ -83,3 +83,11 @@ def test_sem_previsto_nao_avalia_atraso(settings):
 def test_varios_alertas_ao_mesmo_tempo(settings):
     s = situacao(velocidade_kmh=85, fora_da_rota_seguidas=3)
     assert alertas_ativos(s, settings) == {TipoAlerta.VELOCIDADE, TipoAlerta.DESVIO_ROTA}
+
+
+def test_atraso_espera_a_carencia_do_inicio_do_trecho(settings):
+    # 5 min de trecho com ETA estourado: ainda dentro da carência, não alerta.
+    s = situacao(momento=INICIO + timedelta(minutes=5), eta_atual=INICIO + timedelta(minutes=180))
+    assert TipoAlerta.ATRASO not in alertas_ativos(s, settings)
+    s = situacao(momento=INICIO + timedelta(minutes=10), eta_atual=INICIO + timedelta(minutes=180))
+    assert TipoAlerta.ATRASO in alertas_ativos(s, settings)

@@ -52,7 +52,8 @@ def alertas_ativos(s: Situacao, settings: Settings) -> set[TipoAlerta]:
         ativos.add(TipoAlerta.PARADA)
     if s.fora_da_rota_seguidas >= settings.alerta_desvio_leituras:
         ativos.add(TipoAlerta.DESVIO_ROTA)
-    if s.inicio_trecho and s.eta_prevista and s.eta_atual:
+    carencia = timedelta(minutes=settings.alerta_atraso_carencia_min)
+    if s.inicio_trecho and s.eta_prevista and s.eta_atual and s.momento - s.inicio_trecho >= carencia:
         previsto = s.eta_prevista - s.inicio_trecho
         if s.eta_atual - s.inicio_trecho > previsto * (1 + settings.alerta_atraso_tolerancia):
             ativos.add(TipoAlerta.ATRASO)

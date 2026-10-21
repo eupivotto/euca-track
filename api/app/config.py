@@ -37,6 +37,8 @@ class Settings(BaseSettings):
 
     # Alertas de logística e ETA (SPEC seção 6)
     alerta_atraso_tolerancia: float = 0.20
+    # Carência no início do trecho: com poucas leituras (saída ainda devagar) o ETA estoura.
+    alerta_atraso_carencia_min: float = 10
     alerta_parada_velocidade_kmh: float = 5
     alerta_parada_min: float = 15
     alerta_raio_local_m: float = 500

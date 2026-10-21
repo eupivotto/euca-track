@@ -56,14 +56,29 @@ def test_alerta_reabre_depois_de_fechado(sessao, ids):
 
 def test_alerta_fecha_ao_sair_do_transito(sessao, ids):
     # A 10 km/h a média cai ao mínimo de 20 km/h: 54,2 km levariam 163 min, previstos 54.
+    # O atraso só é avaliado depois da carência do início do trecho (10 min).
     c, f = ids["caminhoes"][0], ids["fazenda"]
-    enviar(sessao, c, f, "EM_TRANSITO_CARREGADO", 0, INICIO_ROTA, vel=10)
+    for m in range(0, 11):
+        enviar(sessao, c, f, "EM_TRANSITO_CARREGADO", m, INICIO_ROTA, vel=10)
     assert [a.status for a in alertas(sessao, "ATRASO")] == ["ABERTO"]
     enviar(sessao, c, f, "FILA_PATIO", 60, FIM_ROTA, vel=0)
     assert [a.status for a in alertas(sessao, "ATRASO")] == ["FECHADO"]
     # Na viagem seguinte, o trecho novo não herda o atraso.
     enviar(sessao, c, f, "EM_TRANSITO_VAZIO", 100, FIM_ROTA, vel=70)
     assert [a.status for a in alertas(sessao, "ATRASO")] == ["FECHADO"]
+
+
+def test_saida_parada_nao_abre_atraso(sessao, ids):
+    # Leitura de saída a 0 km/h: sozinha, a média cai ao mínimo e o ETA triplica.
+    c, f = ids["caminhoes"][0], ids["fazenda"]
+    enviar(sessao, c, f, "EM_TRANSITO_CARREGADO", 0, INICIO_ROTA, vel=0)
+    for m in range(1, 12):
+        # A 60 km/h, 1 km por minuto dos 54,2 km da rota.
+        t = m / 54.2
+        ponto = (INICIO_ROTA[0] + (FIM_ROTA[0] - INICIO_ROTA[0]) * t,
+                 INICIO_ROTA[1] + (FIM_ROTA[1] - INICIO_ROTA[1]) * t)
+        enviar(sessao, c, f, "EM_TRANSITO_CARREGADO", m, ponto, vel=60)
+    assert alertas(sessao, "ATRASO") == []
 
 
 def test_parada_pela_sequencia_de_leituras(sessao, ids):
