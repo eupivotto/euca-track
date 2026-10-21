@@ -1,5 +1,6 @@
 """Conversa com a API: lê parâmetros, fazendas, rotas e frota; envia telemetria."""
 import logging
+from datetime import datetime
 
 import httpx
 
@@ -35,6 +36,15 @@ class ClienteApi:
 
     def caminhoes(self) -> list[tuple[int, float]]:
         return [(c["id"], c["capacidade_t"]) for c in self._get("/caminhoes")]
+
+    def relogio_inicial(self, agora_real: datetime) -> datetime:
+        """Onde o relógio simulado começa: nunca antes da última leitura gravada.
+
+        Sem isso, um simulador reiniciado grava posições "no passado" e o
+        painel continua mostrando as da execução anterior.
+        """
+        ultimo = datetime.fromisoformat(self._get("/indicadores")["agora"])
+        return max(agora_real, ultimo)
 
     def enviar(self, leituras: list[dict]) -> bool:
         """Envia um lote. Nunca levanta: a simulação segue mesmo com a API fora."""

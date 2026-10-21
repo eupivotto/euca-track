@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone
 
 import httpx
 
@@ -25,6 +26,8 @@ ROTAS = {
     ],
 }
 CAMINHOES = [{"id": 5, "capacidade_t": 55}, {"id": 6, "capacidade_t": 45}]
+# Última leitura gravada, no fuso da operação (como GET /indicadores devolve).
+ULTIMO_MOMENTO = "2026-10-21T14:02:49-04:00"
 
 
 def api_falsa(vistos=None, status_telemetria=200):
@@ -40,6 +43,8 @@ def api_falsa(vistos=None, status_telemetria=200):
             return httpx.Response(200, json=ROTAS)
         if caminho == "/caminhoes":
             return httpx.Response(200, json=CAMINHOES)
+        if caminho == "/indicadores":
+            return httpx.Response(200, json={"agora": ULTIMO_MOMENTO, "toneladas": 0})
         if caminho == "/telemetria":
             return httpx.Response(status_telemetria, json={"recebidas": 0})
         return httpx.Response(404)
@@ -85,3 +90,15 @@ def test_envio_com_api_fora_nao_levanta():
 
 def test_envio_com_erro_http_devolve_false():
     assert ClienteApi(api_falsa(status_telemetria=500), token="t").enviar([]) is False
+
+
+def test_relogio_continua_da_ultima_leitura_quando_ela_esta_a_frente():
+    # Simulador reiniciado: o relógio simulado já passou da hora real.
+    agora_real = datetime(2026, 10, 21, 16, 0, tzinfo=timezone.utc)
+    inicio = ClienteApi(api_falsa(), token="t").relogio_inicial(agora_real)
+    assert inicio == datetime(2026, 10, 21, 18, 2, 49, tzinfo=timezone.utc)
+
+
+def test_relogio_usa_hora_real_quando_ela_esta_a_frente():
+    agora_real = datetime(2026, 10, 21, 20, 0, tzinfo=timezone.utc)
+    assert ClienteApi(api_falsa(), token="t").relogio_inicial(agora_real) == agora_real

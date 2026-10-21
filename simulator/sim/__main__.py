@@ -37,7 +37,10 @@ def main() -> None:
 
     parametros = cliente.parametros()
     simulacao = Simulacao(
-        parametros, cliente.fazendas(), cliente.caminhoes(), datetime.now(timezone.utc)
+        parametros,
+        cliente.fazendas(),
+        cliente.caminhoes(),
+        cliente.relogio_inicial(datetime.now(timezone.utc)),
     )
     passo_min = parametros.intervalo_telemetria_s / 60
     pausa_s = parametros.intervalo_telemetria_s / parametros.fator_tempo
