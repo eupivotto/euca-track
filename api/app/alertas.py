@@ -32,6 +32,8 @@ class Situacao:
     inicio_trecho: datetime | None
     eta_prevista: datetime | None
     eta_atual: datetime | None
+    # Distância atual até a rota em uso, para a mensagem do desvio (None sem rota).
+    distancia_rota_m: float | None = None
 
 
 def alertas_ativos(s: Situacao, settings: Settings) -> set[TipoAlerta]:

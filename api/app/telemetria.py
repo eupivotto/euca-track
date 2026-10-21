@@ -1,4 +1,5 @@
-"""Recebimento de telemetria: grava posições, abre/fecha viagens e acompanha o trecho."""
+"""Recebimento de telemetria: posições, viagens, trecho em trânsito e alertas."""
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
 from geoalchemy2.shape import from_shape, to_shape
@@ -7,11 +8,13 @@ from shapely.geometry import LineString, Point
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.alertas import alertas_ativos
 from app.config import Settings, get_settings
 from app.estados import Estado
 from app.eta import calcular_eta
 from app.geo import progresso_na_linha
 from app.modelos import Caminhao, EventoViagem, Posicao, Rota, Viagem
+from app.vigilancia import atualizar_alertas, locais, montar_situacao
 
 EM_TRANSITO = {Estado.EM_TRANSITO_CARREGADO, Estado.EM_TRANSITO_VAZIO}
 
@@ -24,6 +27,14 @@ class LeituraEntrada(BaseModel):
     lat: float
     velocidade_kmh: float
     momento: AwareDatetime
+
+
+@dataclass
+class LoteAplicado:
+    """Ids dos caminhões atualizados e dos alertas que abriram ou fecharam, sem repetição."""
+
+    caminhoes: list[int] = field(default_factory=list)
+    alertas: list[int] = field(default_factory=list)
 
 
 class CaminhaoDesconhecido(Exception):
@@ -102,8 +113,8 @@ def _atualizar_trecho(
 
 def registrar_leituras(
     sessao: Session, leituras: list[LeituraEntrada], settings: Settings | None = None
-) -> list[int]:
-    """Aplica o lote na ordem recebida. Devolve os ids dos caminhões atualizados."""
+) -> LoteAplicado:
+    """Aplica o lote na ordem recebida."""
     settings = settings or get_settings()
     ids = {l.caminhao_id for l in leituras}
     caminhoes = {c.id: c for c in sessao.scalars(select(Caminhao).where(Caminhao.id.in_(ids)))}
@@ -112,7 +123,8 @@ def registrar_leituras(
             raise CaminhaoDesconhecido(leitura.caminhao_id)
 
     rotas = _rotas(sessao)
-    atualizados: list[int] = []
+    locais_parada = locais(sessao)
+    lote = LoteAplicado()
     for leitura in leituras:
         caminhao = caminhoes[leitura.caminhao_id]
         viagem = caminhao.viagem_atual
@@ -141,10 +153,17 @@ def registrar_leituras(
                 momento=leitura.momento,
             )
         )
-        _atualizar_trecho(
-            sessao, caminhao, leitura, entrou, rotas.get(leitura.fazenda_id), settings
+        rota = rotas.get(leitura.fazenda_id)
+        _atualizar_trecho(sessao, caminhao, leitura, entrou, rota, settings)
+        situacao = montar_situacao(
+            sessao, caminhao, leitura, rota[0] if rota else None, locais_parada, settings
         )
-        if caminhao.id not in atualizados:
-            atualizados.append(caminhao.id)
+        for alerta in atualizar_alertas(
+            sessao, caminhao, alertas_ativos(situacao, settings), situacao, settings
+        ):
+            if alerta.id not in lote.alertas:
+                lote.alertas.append(alerta.id)
+        if caminhao.id not in lote.caminhoes:
+            lote.caminhoes.append(caminhao.id)
     sessao.flush()
-    return atualizados
+    return lote
