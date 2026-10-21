@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends
@@ -8,7 +8,8 @@ from sqlalchemy.orm import Session
 from app.config import Settings, get_settings
 from app.db import get_sessao
 from app.estados import Estado
-from app.modelos import EventoViagem, Posicao, Viagem
+from app.modelos import EventoViagem, Viagem
+from app.operacao import agora_simulado, inicio_do_dia
 
 router = APIRouter()
 
@@ -20,12 +21,9 @@ def indicadores(
     sessao: Session = Depends(get_sessao),
     settings: Settings = Depends(get_settings),
 ):
-    fuso = ZoneInfo(settings.fuso)
-    # "Agora" é o relógio simulado: a leitura mais recente recebida.
-    agora = sessao.scalar(select(func.max(Posicao.momento))) or datetime.now(timezone.utc)
-    agora = agora.astimezone(fuso)
+    agora = agora_simulado(sessao, ZoneInfo(settings.fuso))
     if inicio is None:
-        inicio = agora.replace(hour=0, minute=0, second=0, microsecond=0)
+        inicio = inicio_do_dia(agora)
     if fim is None:
         fim = inicio + timedelta(days=1)
 
