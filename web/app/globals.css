@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+/*
+ * Tokens visuais (docs/superpowers/specs/2026-10-20-layouts-design.md, seção 2).
+ * Tema claro apenas. Estrutura com linhas de 1 px, sem sombras nem gradientes.
+ */
+@theme {
+  --font-sans: var(--fonte-instrument), ui-sans-serif, system-ui, sans-serif;
+
+  --color-superficie: #ffffff;
+  --color-fundo-sutil: #f6f7f9;
+  --color-trilho: #eef1f4;
+  --color-linha: #e4e7eb;
+  --color-linha-fraca: #f0f2f4;
+  --color-tinta: #101418;
+  --color-tinta-suave: #5f6b76;
+  --color-primaria: #0f5c73;
+  --color-atencao: #b45309;
+  --color-atencao-fundo: #fef3e2;
+  --color-online: #2e8b57;
+  --color-chuva: #1d4e89;
+
+  /* Classes de risco (FMA): só preenchimento, nunca texto */
+  --color-risco-nulo: #9cc5a1;
+  --color-risco-pequeno: #c9de8e;
+  --color-risco-medio: #f2d06b;
+  --color-risco-alto: #e8a33d;
+  --color-risco-muito-alto: #d9534f;
+
+  /* Estados do caminhão */
+  --color-estado-carregando: #9ca8b1;
+  --color-estado-patio: #5a7d8c;
+  --color-foco: #c8102e;
+}
+
+html,
+body {
+  background: var(--color-superficie);
+  color: var(--color-tinta);
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.numeros {
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-primaria);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
