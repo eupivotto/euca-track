@@ -55,3 +55,32 @@ def cliente(sessao):
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def semeado(sessao, settings):
+    from app.seed import semear
+
+    semear(sessao, settings)
+    return sessao
+
+
+@pytest.fixture
+def semeado_com_rota(semeado):
+    from geoalchemy2.shape import from_shape
+    from shapely.geometry import LineString
+    from sqlalchemy import select
+
+    from app.modelos import Fazenda, Rota
+
+    for fazenda in semeado.scalars(select(Fazenda)).all():
+        semeado.add(
+            Rota(
+                fazenda_id=fazenda.id,
+                geom=from_shape(LineString([(-51.95, -20.95), (-51.76, -20.62)]), srid=4326),
+                distancia_km=54.2,
+                duracao_prevista_min=54.2,
+            )
+        )
+    semeado.flush()
+    return semeado
