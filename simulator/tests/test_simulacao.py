@@ -22,6 +22,8 @@ PARAMETROS_PADRAO = {
     "intervalo_telemetria_s": 30,
     "fator_tempo": 10,
     "prob_evento_viagem": 0.05,
+    "parada_min_min": 20,
+    "parada_max_min": 40,
 }
 FABRICA = (-51.76, -20.62)
 INICIO = datetime(2026, 10, 20, 6, 0, tzinfo=timezone.utc)
@@ -34,9 +36,9 @@ def fazendas_padrao():
     ]
 
 
-def nova_sim(caminhoes=None, fazendas=None):
+def nova_sim(caminhoes=None, fazendas=None, **parametros):
     return Simulacao(
-        Parametros.de_json(PARAMETROS_PADRAO),
+        Parametros.de_json({**PARAMETROS_PADRAO, **parametros}),
         fazendas or fazendas_padrao(),
         caminhoes or [(i, 55 if i <= 12 else 45) for i in range(1, 21)],
         INICIO,
@@ -160,3 +162,65 @@ def test_relogio_avanca():
 def test_sem_fazendas_nao_comeca():
     with pytest.raises(ValueError):
         Simulacao(Parametros.de_json(PARAMETROS_PADRAO), [], [(1, 55)], INICIO)
+
+
+EM_TRANSITO = {"EM_TRANSITO_CARREGADO", "EM_TRANSITO_VAZIO"}
+# Rota longa (~33 km) para os trechos terem muitas leituras.
+FAZENDA_LONGE = [FazendaSim(id=1, area_ha=3200, coords_rota=[(-52.07, -20.62), FABRICA])]
+
+
+def trechos(leituras):
+    """Agrupa as leituras de um caminhão em trechos: [(estado, [leituras]), ...]."""
+    grupos = []
+    for leitura in leituras:
+        if grupos and grupos[-1][0] == leitura["estado"]:
+            grupos[-1][1].append(leitura)
+        else:
+            grupos.append((leitura["estado"], [leitura]))
+    return grupos
+
+
+def leituras_de(s, passos, caminhao=0):
+    return [s.passo(0.5)[caminhao] for _ in range(passos)]
+
+
+def test_velocidade_constante_dentro_do_trecho():
+    s = nova_sim(caminhoes=[(1, 55)], fazendas=FAZENDA_LONGE, prob_evento_viagem=0)
+    em_transito = [g for e, g in trechos(leituras_de(s, 1000)) if e in EM_TRANSITO]
+    assert len(em_transito) >= 2
+    for grupo in em_transito:
+        assert len({l["velocidade_kmh"] for l in grupo}) == 1
+
+
+def test_velocidade_por_trecho_dentro_da_variacao():
+    s = nova_sim(fazendas=FAZENDA_LONGE, prob_evento_viagem=0)
+    limites = {"EM_TRANSITO_CARREGADO": 60, "EM_TRANSITO_VAZIO": 70}
+    velocidades = set()
+    for _ in range(3000):
+        for l in s.passo(0.5):
+            if l["estado"] in EM_TRANSITO:
+                base = limites[l["estado"]]
+                assert base * 0.85 - 0.05 <= l["velocidade_kmh"] <= base * 1.15 + 0.05
+                velocidades.add(l["velocidade_kmh"])
+    assert len(velocidades) > 20  # cada trecho sorteia a sua
+
+
+def test_parada_nao_prevista_segura_o_caminhao():
+    s = nova_sim(caminhoes=[(1, 55)], fazendas=FAZENDA_LONGE,
+                 prob_evento_viagem=1, parada_min_min=20, parada_max_min=20)
+    carregado = next(g for e, g in trechos(leituras_de(s, 600)) if e == "EM_TRANSITO_CARREGADO")
+    paradas = [l for l in carregado if l["velocidade_kmh"] == 0]
+    # 20 min parado = 40 leituras de 30 s, seguidas e no mesmo lugar.
+    assert len(paradas) == 40
+    inicio = carregado.index(paradas[0])
+    assert carregado[inicio:inicio + 40] == paradas
+    assert len({(l["lon"], l["lat"]) for l in paradas}) == 1
+    assert carregado[inicio + 40]["velocidade_kmh"] > 0
+
+
+def test_sem_evento_nao_para_no_transito():
+    s = nova_sim(fazendas=FAZENDA_LONGE, prob_evento_viagem=0)
+    for _ in range(1000):
+        for l in s.passo(0.5):
+            if l["estado"] in EM_TRANSITO:
+                assert l["velocidade_kmh"] > 0
