@@ -1,11 +1,15 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi.concurrency import run_in_threadpool
 from geoalchemy2.shape import to_shape
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.config import Settings, get_settings
 from app.db import get_sessao
 from app.estados import ESTADOS_CARREGADO
 from app.modelos import Caminhao, Posicao
+from app.telemetria import CaminhaoDesconhecido, LeituraEntrada, registrar_leituras
+from app.tempo_real import difusor
 
 router = APIRouter()
 
@@ -48,3 +52,40 @@ def caminhoes(sessao: Session = Depends(get_sessao)):
         montar_caminhao_saida(sessao, c)
         for c in sessao.scalars(select(Caminhao).order_by(Caminhao.id))
     ]
+
+
+def _aplicar_lote(sessao: Session, leituras: list[LeituraEntrada]) -> list[dict]:
+    try:
+        ids = registrar_leituras(sessao, leituras)
+    except CaminhaoDesconhecido as erro:
+        # registrar_leituras valida o lote antes de gravar: não há o que desfazer.
+        raise HTTPException(status_code=422, detail=str(erro)) from erro
+    sessao.commit()
+    return [montar_caminhao_saida(sessao, sessao.get(Caminhao, i)) for i in ids]
+
+
+@router.post("/telemetria")
+async def telemetria(
+    leituras: list[LeituraEntrada],
+    x_token: str | None = Header(default=None),
+    sessao: Session = Depends(get_sessao),
+    settings: Settings = Depends(get_settings),
+):
+    if x_token != settings.token_telemetria:
+        raise HTTPException(status_code=401, detail="Token de telemetria inválido")
+    saidas = await run_in_threadpool(_aplicar_lote, sessao, leituras)
+    for saida in saidas:
+        await difusor.difundir({"tipo": "caminhao", "caminhao": saida})
+    return {"recebidas": len(leituras)}
+
+
+@router.websocket("/ws/frota")
+async def ws_frota(ws: WebSocket):
+    await difusor.conectar(ws)
+    try:
+        while True:
+            await ws.receive_text()
+    except WebSocketDisconnect:
+        pass
+    finally:
+        difusor.desconectar(ws)
