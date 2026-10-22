@@ -3,7 +3,7 @@ import { TELAS } from "@/lib/telas";
 
 export function BarraTopo({ ativa }: { ativa: string }) {
   return (
-    <header className="flex h-[50px] shrink-0 items-center gap-4 border-b border-linha px-4">
+    <header className="flex min-h-[50px] shrink-0 flex-wrap items-center gap-x-4 gap-y-1.5 border-b border-linha px-4 py-2 sm:flex-nowrap sm:py-0">
       <span className="text-[15px] font-bold tracking-[-0.01em]">Rota da Madeira</span>
       <nav aria-label="Telas" className="flex gap-0.5 overflow-x-auto rounded-lg bg-trilho p-[3px]">
         {TELAS.map((tela) => {
@@ -24,7 +24,8 @@ export function BarraTopo({ ativa }: { ativa: string }) {
           );
         })}
       </nav>
-      <span className="ml-auto max-w-[24rem] rounded bg-atencao-fundo px-2 py-[3px] text-xs leading-tight text-atencao">
+      {/* No celular o selo desce para uma linha própria, embaixo do menu. */}
+      <span className="w-full rounded bg-atencao-fundo px-2 py-[3px] text-xs leading-tight text-atencao sm:ml-auto sm:w-auto sm:max-w-[24rem]">
         Áreas de eucalipto: MapBiomas (2024). Frota e viagens: dados simulados.
       </span>
     </header>

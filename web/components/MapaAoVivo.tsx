@@ -171,8 +171,9 @@ function Legenda() {
     { rotulo: "No pátio", estilo: { background: MARCADOR_ESTADO.FILA_PATIO.cor } },
     { rotulo: "Fábrica", estilo: { background: COR.tinta } },
   ];
+  // No celular a atribuição ocupa duas linhas: a legenda sobe para não ficar embaixo dela.
   return (
-    <div className="absolute bottom-3 left-3 flex flex-wrap gap-3 rounded-lg border border-linha bg-superficie px-2.5 py-2 text-[11.5px]">
+    <div className="absolute bottom-12 left-3 flex flex-wrap gap-3 rounded-lg border border-linha bg-superficie px-2.5 py-2 text-[11.5px] sm:bottom-3">
       {itens.map((i) => (
         <span key={i.rotulo} className="inline-flex items-center gap-1.5">
           <i aria-hidden className="inline-block size-2 rounded-full" style={i.estilo} />
