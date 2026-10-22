@@ -6,7 +6,7 @@ INICIO, FIM = Acao.INICIO_CARREGAMENTO, Acao.FIM_CARREGAMENTO
 
 
 def test_checkin_exige_caminhao_assumido():
-    assert erro_checkin("CARREGANDO", False, set(), INICIO) == "Assuma o caminhão antes do check-in"
+    assert erro_checkin("CARREGANDO", False, set(), INICIO) == "A posse do caminhão expirou enquanto o app estava sem contato. Faça de novo se ele ainda estiver na fazenda"
 
 
 def test_inicio_so_na_fazenda():

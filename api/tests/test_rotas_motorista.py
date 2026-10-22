@@ -82,7 +82,7 @@ def test_checkin_sem_posse_409(cliente, sessao, ids):
     c, f = ids["caminhoes"][0], ids["fazenda"]
     em(sessao, c, f, "CARREGANDO", 0)
     r = checkin(cliente, c, "INICIO_CARREGAMENTO", "b1")
-    assert r.status_code == 409 and r.json()["detail"] == "Assuma o caminhão antes do check-in"
+    assert r.status_code == 409 and r.json()["detail"] == "A posse do caminhão expirou enquanto o app estava sem contato. Faça de novo se ele ainda estiver na fazenda"
 
 
 def test_checkin_de_caminhao_inexistente_404(cliente, ids):

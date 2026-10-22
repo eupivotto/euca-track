@@ -28,7 +28,8 @@ class Passo(StrEnum):
 def erro_checkin(estado: str | None, assumido: bool, feitas: set[Acao], acao: Acao) -> str | None:
     """None se o check-in pode ser feito; senão, o motivo (vira o 409 da API)."""
     if not assumido:
-        return "Assuma o caminhão antes do check-in"
+        # Quase sempre: o celular ficou sem rede e a posse (renovada pelo app) passou.
+        return "A posse do caminhão expirou enquanto o app estava sem contato. Faça de novo se ele ainda estiver na fazenda"
     if estado != Estado.CARREGANDO:
         return "O caminhão não está na fazenda"
     if acao == Acao.INICIO_CARREGAMENTO:
