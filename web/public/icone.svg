@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#0f5c73"/>
+  <!-- Três toras empilhadas, vistas pela ponta. Margem de segurança para ícone "maskable". -->
+  <g fill="none" stroke="#ffffff" stroke-width="22">
+    <circle cx="196" cy="306" r="58"/>
+    <circle cx="316" cy="306" r="58"/>
+    <circle cx="256" cy="204" r="58"/>
+  </g>
+  <g fill="#ffffff">
+    <circle cx="196" cy="306" r="14"/>
+    <circle cx="316" cy="306" r="14"/>
+    <circle cx="256" cy="204" r="14"/>
+  </g>
+</svg>

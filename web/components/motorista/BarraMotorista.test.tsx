@@ -10,6 +10,13 @@ describe("BarraMotorista", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Sem rede. 2 envios guardados");
   });
 
+  it("offline sem nada guardado explica o que acontece", () => {
+    render(<BarraMotorista placa="TLG1A23" online={false} pendentes={0} onTrocar={() => {}} />);
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Sem rede. O que você registrar fica guardado e sai quando a conexão voltar.",
+    );
+  });
+
   it("online sem pendências não mostra aviso", () => {
     render(<BarraMotorista placa="TLG1A23" online pendentes={0} onTrocar={() => {}} />);
     expect(screen.queryByRole("status")).not.toBeInTheDocument();

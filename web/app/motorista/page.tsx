@@ -9,6 +9,7 @@ import { PainelViagem } from "@/components/motorista/PainelViagem";
 import { assumirCaminhao, buscarCaminhoes, buscarPainelMotorista, soltarCaminhao } from "@/lib/api";
 import { armazemIndexedDb } from "@/lib/armazemIndexedDb";
 import { novoIdLocal } from "@/lib/filaOffline";
+import { guardarPainel, lerPainelGuardado } from "@/lib/motorista";
 import type { AcaoCheckin } from "@/lib/tipos";
 import { useFilaOffline } from "@/lib/useFilaOffline";
 
@@ -52,9 +53,16 @@ export default function Motorista() {
   });
   const { data: painel } = useQuery({
     queryKey: ["motorista", caminhaoId],
-    queryFn: () => buscarPainelMotorista(caminhaoId!),
+    queryFn: async () => {
+      const novo = await buscarPainelMotorista(caminhaoId!);
+      guardarPainel(caminhaoId!, novo);
+      return novo;
+    },
     enabled: caminhaoId !== null,
     refetchInterval: 10_000,
+    // Sem rede, abre com o último painel visto (a busca tenta de novo a cada 10 s).
+    initialData: () => (caminhaoId !== null ? lerPainelGuardado(caminhaoId) : undefined),
+    initialDataUpdatedAt: 0,
   });
 
   // Assume ao escolher e renova enquanto o app está aberto.

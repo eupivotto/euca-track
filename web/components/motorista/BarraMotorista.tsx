@@ -15,7 +15,9 @@ export function BarraMotorista({
   onTrocar?: () => void;
 }) {
   const aviso = !online
-    ? `Sem rede. ${envios(pendentes)}; saem quando a conexão voltar.`
+    ? pendentes > 0
+      ? `Sem rede. ${envios(pendentes)}; saem quando a conexão voltar.`
+      : "Sem rede. O que você registrar fica guardado e sai quando a conexão voltar."
     : pendentes > 0
       ? `Enviando ${envios(pendentes)}…`
       : null;
