@@ -49,9 +49,14 @@ class Caminhao(ComId, Base):
     inicio_trecho: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     eta_prevista: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     eta_atual: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # App do motorista: até quando o caminhão está com o app (relógio simulado).
+    assumido_ate: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Fazenda da última leitura: no trecho vazio, para onde o caminhão está indo.
+    fazenda_destino_id: Mapped[int | None] = mapped_column(ForeignKey("fazendas.id"))
 
     motorista: Mapped[Motorista] = relationship()
     viagem_atual: Mapped["Viagem | None"] = relationship(foreign_keys=[viagem_atual_id])
+    fazenda_destino: Mapped[Fazenda | None] = relationship()
 
 
 class Rota(ComId, Base):
@@ -119,3 +124,27 @@ class Alerta(ComId, Base):
         ),
         Index("ix_alertas_aberto_em", "aberto_em"),
     )
+
+
+class Checkin(ComId, Base):
+    __tablename__ = "checkins"
+    viagem_id: Mapped[int] = mapped_column(ForeignKey("viagens.id"))
+    caminhao_id: Mapped[int] = mapped_column(ForeignKey("caminhoes.id"))
+    acao: Mapped[str] = mapped_column(String(30))
+    momento: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    id_local: Mapped[str] = mapped_column(String(36), unique=True)
+
+
+class Ocorrencia(ComId, Base):
+    __tablename__ = "ocorrencias"
+    viagem_id: Mapped[int | None] = mapped_column(ForeignKey("viagens.id"))
+    motorista_id: Mapped[int] = mapped_column(ForeignKey("motoristas.id"))
+    caminhao_id: Mapped[int] = mapped_column(ForeignKey("caminhoes.id"))
+    tipo: Mapped[str] = mapped_column(String(20))
+    descricao: Mapped[str] = mapped_column(String(500))
+    # Nome do arquivo em settings.pasta_fotos.
+    foto_url: Mapped[str | None] = mapped_column(String(200))
+    momento: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    id_local: Mapped[str] = mapped_column(String(36), unique=True)
+
+    caminhao: Mapped[Caminhao] = relationship()

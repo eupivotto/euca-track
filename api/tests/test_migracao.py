@@ -49,3 +49,18 @@ def test_um_alerta_aberto_por_tipo_e_caminhao(sessao, semeado):
     sessao.add(alerta("ABERTO"))
     with pytest.raises(IntegrityError):
         sessao.flush()
+
+
+def test_migracao_cria_checkins_e_ocorrencias(sessao):
+    insp = inspect(sessao.connection())
+    assert {"viagem_id", "caminhao_id", "acao", "momento", "id_local"} <= {
+        c["name"] for c in insp.get_columns("checkins")
+    }
+    assert {"viagem_id", "motorista_id", "caminhao_id", "tipo", "descricao", "foto_url",
+            "momento", "id_local"} <= {c["name"] for c in insp.get_columns("ocorrencias")}
+    for tabela in ("checkins", "ocorrencias"):
+        unicas = [u["column_names"] for u in insp.get_unique_constraints(tabela)]
+        assert ["id_local"] in unicas
+    assert {"assumido_ate", "fazenda_destino_id"} <= {
+        c["name"] for c in insp.get_columns("caminhoes")
+    }

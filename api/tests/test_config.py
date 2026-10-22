@@ -26,3 +26,9 @@ def test_limites_de_alerta_do_spec():
 def test_parametros_da_simulacao_incluem_parada(cliente):
     r = cliente.get("/simulacao/parametros").json()
     assert r["parada_min_min"] == 20 and r["parada_max_min"] == 40
+
+
+def test_padroes_do_app_do_motorista():
+    s = Settings()
+    assert s.motorista_assumir_min == 60
+    assert s.pasta_fotos == "/dados/fotos" and s.foto_max_mb == 10

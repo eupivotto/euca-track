@@ -48,6 +48,11 @@ class Settings(BaseSettings):
     eta_leituras: int = 10
     eta_velocidade_min_kmh: float = 20
 
+    # App do motorista: posse do caminhão (min simulados, renovada pelo app) e fotos
+    motorista_assumir_min: float = 60
+    pasta_fotos: str = "/dados/fotos"
+    foto_max_mb: float = 10
+
     # Rotas (SPEC seção 5)
     osrm_url: str = "https://router.project-osrm.org"
     fator_linha_reta: float = 1.3

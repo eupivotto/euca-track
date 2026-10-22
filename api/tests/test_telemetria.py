@@ -241,3 +241,12 @@ def test_caminhao_saida_tem_eta_e_fazenda(cliente, ids):
     cliente.post("/telemetria", json=corpo, headers=CABECALHO)
     saida = next(x for x in cliente.get("/caminhoes").json() if x["id"] == c)
     assert saida["eta"] is not None and saida["fazenda"].startswith("Fazenda")
+
+
+def test_leitura_grava_fazenda_de_destino(sessao, ids):
+    c = ids["caminhoes"][0]
+    registrar_leituras(sessao, [leitura(c, ids["fazenda"], "CARREGANDO", 0)])
+    registrar_leituras(sessao, [leitura(c, ids["outra_fazenda"], "EM_TRANSITO_VAZIO", 10)])
+    caminhao = sessao.get(Caminhao, c)
+    assert caminhao.fazenda_destino_id == ids["outra_fazenda"]
+    assert caminhao.viagem_atual.fazenda_id == ids["fazenda"]

@@ -135,6 +135,7 @@ def registrar_leituras(
         if comecou_a_carregar or viagem is None:
             _abrir_viagem(sessao, caminhao, leitura.fazenda_id, leitura.momento)
 
+        caminhao.fazenda_destino_id = leitura.fazenda_id
         entrou = leitura.estado != caminhao.estado_atual
         if entrou:
             sessao.add(
