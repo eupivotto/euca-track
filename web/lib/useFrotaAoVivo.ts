@@ -42,6 +42,10 @@ export function useFrotaAoVivo(): { caminhoes: Caminhao[]; conexao: Conexao } {
           cliente.invalidateQueries({ queryKey: ["patio"] });
           return;
         }
+        if (msg.tipo === "ocorrencia") {
+          cliente.invalidateQueries({ queryKey: ["ocorrencias"] });
+          return;
+        }
         if (msg.tipo !== "caminhao") return;
         // Sem lista ainda: se a carga inicial falhou (API reiniciando), tenta de novo.
         if (!cliente.getQueryData(CHAVE)) {

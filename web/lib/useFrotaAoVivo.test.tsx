@@ -106,6 +106,23 @@ describe("useFrotaAoVivo", () => {
     expect(result.current.caminhoes[0].estado_atual).toBe("CARREGANDO");
   });
 
+  it("mensagem de ocorrência invalida a lista de ocorrências", async () => {
+    const cliente = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidar = vi.spyOn(cliente, "invalidateQueries");
+    const { result } = renderizar(cliente);
+    await waitFor(() => expect(result.current.caminhoes).toHaveLength(1));
+    ultimo().abrir();
+    ultimo().receber({
+      tipo: "ocorrencia",
+      ocorrencia: {
+        id: 9, caminhao_id: 1, placa: "TLG1A23", viagem_id: 42, tipo: "PNEU", descricao: "Pneu furado",
+        foto_url: null, momento: "2026-10-20T18:50:00Z",
+      },
+    });
+    expect(invalidar).toHaveBeenCalledWith({ queryKey: ["ocorrencias"] });
+    expect(result.current.caminhoes[0].estado_atual).toBe("CARREGANDO");
+  });
+
   it("mostra reconectando enquanto está fora e reconecta com espera crescente", async () => {
     vi.useFakeTimers();
     const { result } = renderizar();

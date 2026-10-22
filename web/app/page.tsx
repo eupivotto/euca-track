@@ -9,7 +9,7 @@ import { BarraTopo } from "@/components/BarraTopo";
 import { DetalheCaminhao } from "@/components/DetalheCaminhao";
 import { ReguaMeta } from "@/components/ReguaMeta";
 import { TabelaFrota } from "@/components/TabelaFrota";
-import { buscarFazendas, buscarIndicadores, buscarRotas } from "@/lib/api";
+import { buscarFazendas, buscarIndicadores, buscarOcorrencias, buscarRotas } from "@/lib/api";
 import { useFrotaAoVivo } from "@/lib/useFrotaAoVivo";
 
 // O MapLibre depende do navegador (WebGL).
@@ -41,6 +41,12 @@ function AoVivo() {
     () => Number(parametros.get("caminhao")) || null,
   );
   const selecionado = caminhoes.find((c) => c.id === selecionadoId);
+  const viagemSelecionada = selecionado?.viagem_atual_id ?? null;
+  const ocorrencias = useQuery({
+    queryKey: ["ocorrencias", viagemSelecionada],
+    queryFn: () => buscarOcorrencias({ viagemId: viagemSelecionada! }),
+    enabled: viagemSelecionada !== null,
+  });
 
   return (
     <div className="flex min-h-dvh flex-col lg:h-dvh">
@@ -63,7 +69,11 @@ function AoVivo() {
         </div>
         <aside className="border-t border-linha lg:overflow-y-auto lg:border-t-0 lg:border-l">
           {selecionado ? (
-            <DetalheCaminhao caminhao={selecionado} onVoltar={() => setSelecionadoId(null)} />
+            <DetalheCaminhao
+              caminhao={selecionado}
+              ocorrencias={ocorrencias.data}
+              onVoltar={() => setSelecionadoId(null)}
+            />
           ) : (
             <TabelaFrota caminhoes={caminhoes} onSelecionar={setSelecionadoId} />
           )}

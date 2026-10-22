@@ -48,7 +48,17 @@ export function TabelaFrota({
                 : "cursor-pointer hover:bg-fundo-sutil focus-visible:bg-fundo-sutil"
             }
           >
-            <td className="border-b border-linha-fraca px-3 py-[7px] font-medium">{c.placa}</td>
+            <td className="border-b border-linha-fraca px-3 py-[7px] font-medium whitespace-nowrap">
+              {c.placa}
+              {c.assumido && (
+                <span
+                  title="Com o app do motorista"
+                  className="ml-1.5 rounded border border-primaria px-1 text-[10.5px] font-semibold text-primaria"
+                >
+                  App
+                </span>
+              )}
+            </td>
             <td className="border-b border-linha-fraca px-3 py-[7px]">
               <MarcaEstado caminhao={c} />
             </td>

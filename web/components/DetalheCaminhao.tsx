@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { ROTULO_ALERTA } from "@/lib/estados";
 import { horaCurta, toneladas } from "@/lib/formato";
-import type { Caminhao } from "@/lib/tipos";
+import type { Caminhao, Ocorrencia } from "@/lib/tipos";
+import { ListaOcorrencias } from "./ListaOcorrencias";
 import { MarcaEstado } from "./TabelaFrota";
 
 function Linha({ rotulo, children }: { rotulo: string; children: React.ReactNode }) {
@@ -13,7 +14,16 @@ function Linha({ rotulo, children }: { rotulo: string; children: React.ReactNode
   );
 }
 
-export function DetalheCaminhao({ caminhao, onVoltar }: { caminhao: Caminhao; onVoltar: () => void }) {
+export function DetalheCaminhao({
+  caminhao,
+  ocorrencias,
+  onVoltar,
+}: {
+  caminhao: Caminhao;
+  // Da viagem atual; undefined enquanto carrega.
+  ocorrencias?: Ocorrencia[];
+  onVoltar: () => void;
+}) {
   const alertas = caminhao.alertas_abertos.map((t) => ROTULO_ALERTA[t]).join(", ");
   return (
     <div className="numeros p-4">
@@ -25,7 +35,10 @@ export function DetalheCaminhao({ caminhao, onVoltar }: { caminhao: Caminhao; on
         Voltar para a frota
       </button>
       <h2 className="text-[24px] leading-tight font-semibold tracking-[-0.02em]">{caminhao.placa}</h2>
-      <p className="mb-3 text-tinta-suave capitalize">{caminhao.tipo}</p>
+      <p className="mb-3 text-tinta-suave">
+        <span className="capitalize">{caminhao.tipo}</span>
+        {caminhao.assumido && <span className="ml-2 font-medium text-primaria">Com o app do motorista</span>}
+      </p>
       <dl className="text-[13px]">
         <Linha rotulo="Motorista">{caminhao.motorista}</Linha>
         <Linha rotulo="Estado">
@@ -44,6 +57,12 @@ export function DetalheCaminhao({ caminhao, onVoltar }: { caminhao: Caminhao; on
           {alertas ? <span className="font-semibold text-atencao">{alertas}</span> : "Nenhum"}
         </Linha>
       </dl>
+      {caminhao.viagem_atual_id !== null && ocorrencias && (
+        <section className="mt-5">
+          <h3 className="mb-1 text-[13px] font-semibold">Ocorrências da viagem</h3>
+          <ListaOcorrencias ocorrencias={ocorrencias} />
+        </section>
+      )}
       {caminhao.viagem_atual_id !== null && (
         <Link
           href={`/replay?viagem=${caminhao.viagem_atual_id}`}

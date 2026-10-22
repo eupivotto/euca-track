@@ -5,6 +5,17 @@ import { caminhao as c } from "@/lib/fabricas.test-util";
 import { TabelaFrota } from "./TabelaFrota";
 
 describe("TabelaFrota", () => {
+  it("caminhão com o app do motorista leva a marca App", () => {
+    render(
+      <TabelaFrota
+        caminhoes={[c("TLG1A23", "CARREGANDO", 0, { assumido: true }), c("TLG2B11", "CARREGANDO", 0, { id: 2 })]}
+        onSelecionar={() => {}}
+      />,
+    );
+    expect(screen.getByRole("row", { name: /TLG1A23/ })).toHaveTextContent("App");
+    expect(screen.getByRole("row", { name: /TLG2B11/ })).not.toHaveTextContent("App");
+  });
+
   it("mostra placa, estado legível e carga", () => {
     render(<TabelaFrota caminhoes={[c("TLG1A23", "FILA_PATIO", 55)]} onSelecionar={() => {}} />);
     expect(screen.getByRole("row", { name: /TLG1A23 Fila do pátio 55 t/ })).toBeInTheDocument();

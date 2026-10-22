@@ -37,4 +37,22 @@ describe("DetalheCaminhao", () => {
     expect(screen.queryByRole("link", { name: "Ver viagem no replay" })).not.toBeInTheDocument();
     expect(screen.getByText("Nenhum")).toBeInTheDocument();
   });
+
+  it("caminhão no app mostra isso e lista as ocorrências da viagem", () => {
+    render(
+      <DetalheCaminhao
+        caminhao={c("TLG1A23", "EM_TRANSITO_CARREGADO", 55, { assumido: true, viagem_atual_id: 42 })}
+        ocorrencias={[
+          {
+            id: 9, caminhao_id: 1, placa: "TLG1A23", viagem_id: 42, tipo: "PNEU",
+            descricao: "Pneu furado", foto_url: "/ocorrencias/9/foto", momento: "2026-10-20T18:50:00Z",
+          },
+        ]}
+        onVoltar={() => {}}
+      />,
+    );
+    expect(screen.getByText("Com o app do motorista")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Ocorrências da viagem" })).toBeInTheDocument();
+    expect(screen.getByText("Pneu furado")).toBeInTheDocument();
+  });
 });
