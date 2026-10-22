@@ -27,3 +27,23 @@ def buscar_rota(
     )
     resposta.raise_for_status()
     return ler_resposta_osrm(resposta.json())
+
+
+def ler_resposta_nearest(dados: dict) -> tuple[tuple[float, float], float]:
+    """Ponto da estrada mais próxima (lon, lat) e a distância até ele, em metros."""
+    if dados.get("code") != "Ok" or not dados.get("waypoints"):
+        raise ValueError(f"OSRM sem estrada próxima (code={dados.get('code')!r})")
+    ponto = dados["waypoints"][0]
+    lon, lat = ponto["location"]
+    return (float(lon), float(lat)), float(ponto["distance"])
+
+
+def buscar_mais_proximo(
+    cliente: httpx.Client, settings: Settings, ponto: tuple[float, float]
+) -> tuple[tuple[float, float], float]:
+    resposta = cliente.get(
+        f"{settings.osrm_url}/nearest/v1/driving/{ponto[0]},{ponto[1]}",
+        headers={"User-Agent": settings.user_agent},
+    )
+    resposta.raise_for_status()
+    return ler_resposta_nearest(resposta.json())
