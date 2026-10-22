@@ -3,7 +3,8 @@
 Funções puras: o raster chega já lido; quem baixa e grava são os scripts
 exportar_mapbiomas e gerar_areas_eucalipto.
 """
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import numpy as np
@@ -82,7 +83,7 @@ def areas_eucalipto(
     candidatas.sort(key=lambda p: p.area, reverse=True)
     return [
         AreaEucalipto(
-            nome=f"Área de eucalipto {i:02d}",
+            nome=_nome(i),
             area_ha=round(p.area / 10_000, 1),
             geom=_projetar(p, _PARA_GRAUS),
             # representative_point, não centroide: em área com buraco ou em U o centroide cai fora.
@@ -90,6 +91,26 @@ def areas_eucalipto(
         )
         for i, p in enumerate(candidatas[: settings.areas_maximo], start=1)
     ]
+
+
+def _nome(i: int) -> str:
+    return f"Área de eucalipto {i:02d}"
+
+
+def selecionar_por_estrada(
+    candidatas: list[AreaEucalipto],
+    distancia_estrada_km: Callable[[AreaEucalipto], float | None],
+    settings: Settings,
+) -> list[AreaEucalipto]:
+    """Na ordem das candidatas, pula as que passam do raio por estrada (None: sem rota, vale a linha reta)."""
+    escolhidas: list[AreaEucalipto] = []
+    for area in candidatas:
+        if len(escolhidas) == settings.areas_maximo:
+            break
+        km = distancia_estrada_km(area)
+        if km is None or km <= settings.areas_raio_km:
+            escolhidas.append(replace(area, nome=_nome(len(escolhidas) + 1)))
+    return escolhidas
 
 
 def _arredondar(geom, casas: int = 5):

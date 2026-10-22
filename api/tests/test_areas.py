@@ -1,7 +1,7 @@
 import rasterio
 from shapely.geometry import Polygon, box
 
-from app.areas import areas_eucalipto, para_geojson, vetorizar
+from app.areas import areas_eucalipto, para_geojson, selecionar_por_estrada, vetorizar
 from app.config import Settings
 from tests.conftest import FIXTURES
 
@@ -96,3 +96,24 @@ def test_para_geojson_arredonda_a_5_casas():
     # ~1 m de precisão: o arquivo vai para o painel e para o celular a cada carga.
     anel = para_geojson(gerar())["features"][0]["geometry"]["coordinates"][0]
     assert all(round(v, 5) == v for ponto in anel for v in ponto)
+
+
+def test_selecao_por_estrada_pula_quem_passa_do_raio():
+    candidatas = gerar(areas_maximo=50)
+    estrada = {candidatas[0].nome: 216.0, candidatas[2].nome: None}  # None: sem rota, vale a linha reta
+    escolhidas = selecionar_por_estrada(candidatas, lambda a: estrada.get(a.nome, 80.0), Settings())
+    assert len(escolhidas) == 8
+    assert escolhidas[0].geom.equals(candidatas[1].geom)  # a maior ficou de fora
+    assert escolhidas[1].geom.equals(candidatas[2].geom)
+    assert [a.nome for a in escolhidas] == [f"Área de eucalipto {i:02d}" for i in range(1, 9)]
+
+
+def test_selecao_por_estrada_para_ao_completar_o_maximo():
+    consultadas = []
+
+    def estrada(area):
+        consultadas.append(area.nome)
+        return 50.0
+
+    escolhidas = selecionar_por_estrada(gerar(areas_maximo=50), estrada, Settings(areas_maximo=3))
+    assert len(escolhidas) == 3 and len(consultadas) == 3  # não consulta o OSRM à toa
