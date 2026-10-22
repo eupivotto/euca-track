@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 
 from app.rotas_http import (
-    alertas, frota, indicadores, mapa, motorista, patio, saude, simulacao, viagens,
+    alertas, frota, indicadores, mapa, motorista, ocorrencias, patio, saude, simulacao, viagens,
 )
 
 app = FastAPI(title="Rota da Madeira")
@@ -14,3 +14,4 @@ app.include_router(alertas.router)
 app.include_router(patio.router)
 app.include_router(viagens.router)
 app.include_router(motorista.router)
+app.include_router(ocorrencias.router)

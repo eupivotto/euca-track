@@ -39,6 +39,7 @@ services:
       PROB_EVENTO_VIAGEM: ${PROB_EVENTO_VIAGEM:-0.05}
     volumes:
       - ./api:/app
+      - fotos:/dados/fotos
     ports:
       - "8000:8000"
     depends_on:
@@ -80,3 +81,4 @@ services:
 
 volumes:
   dados_db:
+  fotos:
