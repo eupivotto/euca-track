@@ -90,3 +90,9 @@ def test_para_geojson():
     assert primeira["properties"]["nome"] == "Área de eucalipto 01"
     assert primeira["properties"]["area_ha"] >= 500
     assert len(primeira["properties"]["centro"]) == 2
+
+
+def test_para_geojson_arredonda_a_5_casas():
+    # ~1 m de precisão: o arquivo vai para o painel e para o celular a cada carga.
+    anel = para_geojson(gerar())["features"][0]["geometry"]["coordinates"][0]
+    assert all(round(v, 5) == v for ponto in anel for v in ponto)

@@ -4,6 +4,7 @@ Funções puras: o raster chega já lido; quem baixa e grava são os scripts
 exportar_mapbiomas e gerar_areas_eucalipto.
 """
 from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
 import shapely
@@ -14,6 +15,10 @@ from shapely.geometry import Point, Polygon, mapping, shape
 from shapely.ops import unary_union
 
 from app.config import Settings
+
+DADOS = Path(__file__).resolve().parent / "dados"
+ARQUIVO_AREAS = DADOS / "areas_eucalipto.geojson"
+ARQUIVO_LIMITE = DADOS / "limite_ms.geojson"
 
 # SIRGAS 2000 / UTM 22S: medidas em metros na região de Três Lagoas.
 SRID_METROS = 31982
@@ -87,14 +92,19 @@ def areas_eucalipto(
     ]
 
 
+def _arredondar(geom, casas: int = 5):
+    # ~1 m: o arquivo vai para o painel e o celular; mais casas só pesam.
+    return shapely.transform(geom, lambda xy: np.round(xy, casas))
+
+
 def para_geojson(areas: list[AreaEucalipto]) -> dict:
     return {
         "type": "FeatureCollection",
         "features": [
             {
                 "type": "Feature",
-                "geometry": mapping(a.geom),
-                "properties": {"nome": a.nome, "area_ha": a.area_ha, "centro": [a.centro.x, a.centro.y]},
+                "geometry": mapping(_arredondar(a.geom)),
+                "properties": {"nome": a.nome, "area_ha": a.area_ha, "centro": [round(a.centro.x, 5), round(a.centro.y, 5)]},
             }
             for a in areas
         ],
