@@ -1,4 +1,5 @@
 """Regras do app do motorista: check-in de carregamento e o passo em que a viagem está."""
+from datetime import datetime
 from enum import StrEnum
 
 from app.estados import Estado
@@ -45,3 +46,8 @@ def passo_atual(estado: str | None, feitas: set[Acao]) -> Passo:
     if estado in (Estado.FILA_PATIO, Estado.PESAGEM, Estado.DESCARGA):
         return Passo.NA_FABRICA
     return Passo.INDO_PARA_FAZENDA
+
+
+def assumido(assumido_ate: datetime | None, agora: datetime) -> bool:
+    """O caminhão está com o app até assumido_ate (relógio simulado)."""
+    return assumido_ate is not None and assumido_ate > agora

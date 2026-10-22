@@ -1,3 +1,6 @@
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 from fastapi import APIRouter, Depends, Header, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.concurrency import run_in_threadpool
 from geoalchemy2.shape import to_shape
@@ -8,6 +11,8 @@ from app.config import Settings, get_settings
 from app.db import get_sessao
 from app.estados import ESTADOS_CARREGADO
 from app.modelos import Alerta, Caminhao, Posicao
+from app.motorista import assumido
+from app.operacao import agora_simulado
 from app.telemetria import CaminhaoDesconhecido, LeituraEntrada, registrar_leituras
 from app.tempo_real import difusor
 from app.vigilancia import alerta_saida
@@ -15,8 +20,12 @@ from app.vigilancia import alerta_saida
 router = APIRouter()
 
 
-def montar_caminhao_saida(sessao: Session, caminhao: Caminhao) -> dict:
+def montar_caminhao_saida(
+    sessao: Session, caminhao: Caminhao, agora: datetime | None = None
+) -> dict:
     """Estado atual de um caminhão, no formato de GET /caminhoes e do WebSocket."""
+    if agora is None:
+        agora = agora_simulado(sessao, ZoneInfo(get_settings().fuso))
     ultima = sessao.scalars(
         select(Posicao)
         .where(Posicao.caminhao_id == caminhao.id)
@@ -47,6 +56,7 @@ def montar_caminhao_saida(sessao: Session, caminhao: Caminhao) -> dict:
         "carga_t": caminhao.capacidade_t if carregado else 0,
         "posicao": posicao,
         "eta": caminhao.eta_atual.isoformat() if caminhao.eta_atual else None,
+        "assumido": assumido(caminhao.assumido_ate, agora),
         "alertas_abertos": sorted(
             sessao.scalars(
                 select(Alerta.tipo).where(
@@ -58,9 +68,10 @@ def montar_caminhao_saida(sessao: Session, caminhao: Caminhao) -> dict:
 
 
 @router.get("/caminhoes")
-def caminhoes(sessao: Session = Depends(get_sessao)):
+def caminhoes(sessao: Session = Depends(get_sessao), settings: Settings = Depends(get_settings)):
+    agora = agora_simulado(sessao, ZoneInfo(settings.fuso))
     return [
-        montar_caminhao_saida(sessao, c)
+        montar_caminhao_saida(sessao, c, agora)
         for c in sessao.scalars(select(Caminhao).order_by(Caminhao.id))
     ]
 
@@ -73,8 +84,9 @@ def _aplicar_lote(sessao: Session, leituras: list[LeituraEntrada]) -> list[dict]
         # registrar_leituras valida o lote antes de gravar: não há o que desfazer.
         raise HTTPException(status_code=422, detail=str(erro)) from erro
     sessao.commit()
+    agora = agora_simulado(sessao, ZoneInfo(get_settings().fuso))
     return [
-        {"tipo": "caminhao", "caminhao": montar_caminhao_saida(sessao, sessao.get(Caminhao, i))}
+        {"tipo": "caminhao", "caminhao": montar_caminhao_saida(sessao, sessao.get(Caminhao, i), agora)}
         for i in lote.caminhoes
     ] + [{"tipo": "alerta", "alerta": alerta_saida(sessao.get(Alerta, i))} for i in lote.alertas]
 
