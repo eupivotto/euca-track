@@ -94,3 +94,18 @@ describe("enviarPendente", () => {
     fetch.mockRestore();
   });
 });
+
+describe("novoIdLocal", () => {
+  it("gera um UUID v4 mesmo sem crypto.randomUUID (http na rede local)", async () => {
+    const { novoIdLocal } = await import("./filaOffline");
+    const original = crypto.randomUUID;
+    Object.defineProperty(crypto, "randomUUID", { value: undefined, configurable: true });
+    try {
+      const a = novoIdLocal();
+      expect(a).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+      expect(novoIdLocal()).not.toBe(a);
+    } finally {
+      Object.defineProperty(crypto, "randomUUID", { value: original, configurable: true });
+    }
+  });
+});
