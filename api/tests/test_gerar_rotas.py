@@ -8,11 +8,11 @@ from app.geo import distancia_km
 from app.modelos import Fazenda, Rota
 from shapely.geometry import box
 
-from app.scripts.gerar_rotas import gerar_rotas, ponto_carregamento, pontos_borda
+from app.scripts.gerar_rotas import PONTOS_BORDA, gerar_rotas, ponto_carregamento, pontos_borda
 from app.seed import semear
 from tests.test_osrm import AMOSTRA, AMOSTRA_NEAREST
 
-PONTOS_BORDA = 12
+
 
 
 def cliente_que_responde(status: int, texto: str = "") -> httpx.Client:
@@ -127,3 +127,25 @@ def test_rota_sai_do_ponto_de_carregamento(sessao, settings):
     assert len(rotas) == 8
     # origem é a estrada da amostra de /nearest, não o centro da área
     assert all(r.url.path.split("/")[-1].startswith("-51.725739,-20.407791;") for r in rotas)
+
+
+def test_osrm_travado_nao_segura_a_subida(sessao, settings):
+    # Servidor que trava (timeout): depois da primeira falha no /nearest, nenhuma área consulta de novo.
+    semear(sessao, settings)
+    pedidos = []
+
+    def trava(req):
+        pedidos.append(req.url.path)
+        raise httpx.ReadTimeout("travou", request=req)
+
+    gerar_rotas(sessao, settings, httpx.Client(transport=httpx.MockTransport(trava)), dormir=lambda s: None)
+    assert sum("/nearest/" in p for p in pedidos) == 1
+    assert sum("/route/" in p for p in pedidos) == 8
+
+
+def test_estrada_inexistente_num_ponto_nao_desliga_o_osrm(settings):
+    # NoSegment num ponto é resposta válida: os outros pontos continuam sendo consultados.
+    respostas = iter([{"code": "NoSegment", "waypoints": []}] + [{"code": "Ok", "waypoints": [{"location": [-51.9, -20.5], "distance": 50.0}]}] * 11)
+    cliente = httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(200, json=next(respostas))))
+    ponto, aviso = ponto_carregamento(cliente, settings, QUADRADO, CENTRO, lambda s: None, "Área X")
+    assert ponto == (-51.9, -20.5) and aviso is None

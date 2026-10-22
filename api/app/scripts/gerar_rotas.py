@@ -14,6 +14,7 @@ puder ser calculada, usa linha reta com fator de distância e avisa.
 """
 import time
 from collections.abc import Callable
+from dataclasses import dataclass
 
 import httpx
 from geoalchemy2.shape import from_shape, to_shape
@@ -31,6 +32,17 @@ PONTOS_BORDA = 12
 ERROS_OSRM = (httpx.HTTPError, ValueError, KeyError)
 
 
+@dataclass
+class EstadoOsrm:
+    """Desliga o /nearest depois de uma falha de rede ou do servidor.
+
+    A API só sobe depois do preparo: com o OSRM travado, 104 consultas com
+    timeout de 20 s segurariam o painel por mais de meia hora.
+    """
+
+    fora: bool = False
+
+
 def pontos_borda(geom: Polygon, quantidade: int = PONTOS_BORDA) -> list[tuple[float, float]]:
     """Pontos igualmente espaçados no contorno externo da área."""
     anel = geom.exterior
@@ -44,19 +56,29 @@ def ponto_carregamento(
     centro: tuple[float, float],
     dormir: Callable[[float], None],
     nome: str,
+    osrm: EstadoOsrm | None = None,
 ) -> tuple[tuple[float, float], str | None]:
     """Estrada mais perto da borda da área; sem resposta do OSRM, o centro e um aviso."""
+    osrm = osrm or EstadoOsrm()
     melhor: tuple[tuple[float, float], float] | None = None
     for ponto in pontos_borda(geom):
+        if osrm.fora:
+            break
         dormir(PAUSA_ENTRE_REQUISICOES_S)
         try:
             estrada, distancia = buscar_mais_proximo(cliente, settings, ponto)
-        except ERROS_OSRM:
-            continue
+        except httpx.HTTPError:
+            osrm.fora = True
+            break
+        except (ValueError, KeyError):
+            continue  # sem estrada perto deste ponto; os outros podem ter
         if melhor is None or distancia < melhor[1]:
             melhor = (estrada, distancia)
     if melhor is None:
-        return centro, f"Ponto de carregamento de {nome} no centro da área: OSRM sem estrada próxima"
+        return centro, (
+            f"Ponto de carregamento de {nome} no centro da área: OSRM sem estrada próxima. "
+            "Para tentar de novo: python -m app.scripts.gerar_rotas"
+        )
     return melhor[0], None
 
 
@@ -84,10 +106,11 @@ def gerar_rotas(
             dormir(segundos)
         requisicoes += 1
 
+    osrm = EstadoOsrm()
     for fazenda in fazendas:
         centro = to_shape(fazenda.centro)
         origem, aviso = ponto_carregamento(
-            cliente, settings, to_shape(fazenda.geom), (centro.x, centro.y), pausar, fazenda.nome
+            cliente, settings, to_shape(fazenda.geom), (centro.x, centro.y), pausar, fazenda.nome, osrm
         )
         if aviso:
             avisos.append(aviso)
@@ -108,6 +131,7 @@ def gerar_rotas(
             )
         )
         sessao.flush()
+        print(f"Rota de {fazenda.nome}: {rota.distancia_km:.0f} km", flush=True)
     return avisos
 
 
