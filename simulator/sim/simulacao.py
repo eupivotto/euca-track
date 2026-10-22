@@ -62,6 +62,9 @@ class CaminhaoSim:
     # Parada não prevista no trecho carregado: onde (km) e quanto tempo falta.
     parada_km: float | None = None
     parada_restante_min: float = 0
+    # App do motorista: assumido não termina o carregamento sozinho; liberado sai já.
+    assumido: bool = False
+    liberado: bool = False
 
 
 class Simulacao:
@@ -133,7 +136,19 @@ class Simulacao:
             c.fazenda_id = self.sortear_fazenda()
             self._comecar_trecho(c)
 
+    def controlar(self, assumidos: set[int], liberados: set[int]) -> None:
+        """Aplica a resposta da telemetria: quem está com o app e quem já pode sair."""
+        for c in self.caminhoes:
+            c.assumido = c.id in assumidos
+            c.liberado = c.id in liberados
+
     def _avancar(self, c: CaminhaoSim, minutos: float) -> None:
+        if c.estado == Estado.CARREGANDO and c.liberado:
+            c.liberado = False
+            self._entrar(c, proximo_estado(c.estado))
+            return
+        if c.estado == Estado.CARREGANDO and c.assumido:
+            return
         if c.estado in EM_TRANSITO:
             if c.parada_km is not None and c.km >= c.parada_km:
                 c.velocidade_kmh = 0

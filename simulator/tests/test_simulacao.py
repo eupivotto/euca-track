@@ -224,3 +224,33 @@ def test_sem_evento_nao_para_no_transito():
         for l in s.passo(0.5):
             if l["estado"] in EM_TRANSITO:
                 assert l["velocidade_kmh"] > 0
+
+
+def test_assumido_nao_termina_o_carregamento_sozinho():
+    s = nova_sim(caminhoes=[(1, 55)])
+    s.controlar({1}, set())
+    for _ in range(400):  # 200 min, bem mais que o carregamento máximo (60)
+        assert s.passo(0.5)[0]["estado"] == "CARREGANDO"
+
+
+def test_liberado_sai_no_passo_seguinte_uma_vez():
+    s = nova_sim(caminhoes=[(1, 55)], prob_evento_viagem=0)
+    s.controlar({1}, set())
+    s.passo(0.5)
+    s.controlar({1}, {1})
+    assert s.passo(0.5)[0]["estado"] == "EM_TRANSITO_CARREGADO"
+    s.controlar({1}, set())
+    # Percorre o ciclo até carregar de novo: a viagem nova não sai sem novo check-in.
+    estados = [s.passo(0.5)[0]["estado"] for _ in range(2000)]
+    volta = estados.index("CARREGANDO")
+    assert set(estados[volta:]) == {"CARREGANDO"}
+
+
+def test_solto_volta_a_contar_o_tempo():
+    s = nova_sim(caminhoes=[(1, 55)])
+    s.controlar({1}, set())
+    for _ in range(200):
+        s.passo(0.5)
+    s.controlar(set(), set())
+    estados = [s.passo(0.5)[0]["estado"] for _ in range(130)]  # 65 min
+    assert "EM_TRANSITO_CARREGADO" in estados

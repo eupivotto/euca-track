@@ -30,7 +30,7 @@ CAMINHOES = [{"id": 5, "capacidade_t": 55}, {"id": 6, "capacidade_t": 45}]
 ULTIMO_MOMENTO = "2026-10-21T14:02:49-04:00"
 
 
-def api_falsa(vistos=None, status_telemetria=200):
+def api_falsa(vistos=None, status_telemetria=200, resposta_telemetria=None):
     def handler(req: httpx.Request):
         if vistos is not None:
             vistos.append(req)
@@ -46,7 +46,7 @@ def api_falsa(vistos=None, status_telemetria=200):
         if caminho == "/indicadores":
             return httpx.Response(200, json={"agora": ULTIMO_MOMENTO, "toneladas": 0})
         if caminho == "/telemetria":
-            return httpx.Response(status_telemetria, json={"recebidas": 0})
+            return httpx.Response(status_telemetria, json=resposta_telemetria or {"recebidas": 0})
         return httpx.Response(404)
 
     return httpx.Client(transport=httpx.MockTransport(handler), base_url="http://api")
@@ -75,7 +75,7 @@ def test_caminhoes():
 def test_envio_manda_token_e_lote():
     vistos = []
     cli = ClienteApi(api_falsa(vistos), token="t")
-    assert cli.enviar([{"caminhao_id": 1}]) is True
+    assert cli.enviar([{"caminhao_id": 1}]) == {"recebidas": 0}
     assert vistos[0].headers["x-token"] == "t"
     assert json.loads(vistos[0].content) == [{"caminhao_id": 1}]
 
@@ -85,11 +85,17 @@ def test_envio_com_api_fora_nao_levanta():
         raise httpx.ConnectError("fora", request=req)
 
     cli = ClienteApi(httpx.Client(transport=httpx.MockTransport(cai), base_url="http://api"), token="t")
-    assert cli.enviar([]) is False
+    assert cli.enviar([]) is None
 
 
-def test_envio_com_erro_http_devolve_false():
-    assert ClienteApi(api_falsa(status_telemetria=500), token="t").enviar([]) is False
+def test_envio_com_erro_http_devolve_none():
+    assert ClienteApi(api_falsa(status_telemetria=500), token="t").enviar([]) is None
+
+
+def test_enviar_devolve_a_resposta():
+    resposta = {"recebidas": 1, "assumidos": [5], "liberados": [6]}
+    cli = ClienteApi(api_falsa(resposta_telemetria=resposta), token="t")
+    assert cli.enviar([{"caminhao_id": 5}]) == resposta
 
 
 def test_relogio_continua_da_ultima_leitura_quando_ela_esta_a_frente():

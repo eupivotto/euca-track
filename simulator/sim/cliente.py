@@ -46,14 +46,14 @@ class ClienteApi:
         ultimo = datetime.fromisoformat(self._get("/indicadores")["agora"])
         return max(agora_real, ultimo)
 
-    def enviar(self, leituras: list[dict]) -> bool:
-        """Envia um lote. Nunca levanta: a simulação segue mesmo com a API fora."""
+    def enviar(self, leituras: list[dict]) -> dict | None:
+        """Envia um lote e devolve a resposta. Nunca levanta: a simulação segue mesmo com a API fora."""
         try:
             resposta = self.http.post("/telemetria", json=leituras, headers={"X-Token": self.token})
         except httpx.HTTPError as erro:
             log.warning("Falha ao enviar telemetria: %s", erro)
-            return False
+            return None
         if resposta.status_code != 200:
             log.warning("API recusou a telemetria: %s %s", resposta.status_code, resposta.text[:200])
-            return False
-        return True
+            return None
+        return resposta.json()

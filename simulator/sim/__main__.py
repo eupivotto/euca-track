@@ -48,6 +48,13 @@ def iniciar(
             esperar(ESPERA_INICIAL_S)
 
 
+def enviar_e_controlar(cliente: ClienteApi, simulacao: Simulacao, passo_min: float) -> None:
+    """Um passo da simulação. A resposta da API diz quais caminhões estão com o app."""
+    resposta = cliente.enviar(simulacao.passo(passo_min))
+    if resposta is not None:
+        simulacao.controlar(set(resposta.get("assumidos", [])), set(resposta.get("liberados", [])))
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     logging.getLogger("httpx").setLevel(logging.WARNING)  # sem uma linha por lote enviado
@@ -63,7 +70,7 @@ def main() -> None:
 
     while True:
         inicio = time.monotonic()
-        cliente.enviar(simulacao.passo(passo_min))
+        enviar_e_controlar(cliente, simulacao, passo_min)
         time.sleep(max(0.0, pausa_s - (time.monotonic() - inicio)))
 
 
