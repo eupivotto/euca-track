@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import { BarraMotorista } from "@/components/motorista/BarraMotorista";
 import { EscolhaCaminhao } from "@/components/motorista/EscolhaCaminhao";
+import { FormOcorrencia, type NovaOcorrencia } from "@/components/motorista/FormOcorrencia";
 import { PainelViagem } from "@/components/motorista/PainelViagem";
 import { assumirCaminhao, buscarCaminhoes, buscarPainelMotorista, soltarCaminhao } from "@/lib/api";
 import { armazemIndexedDb } from "@/lib/armazemIndexedDb";
@@ -37,6 +38,8 @@ export default function Motorista() {
   const cliente = useQueryClient();
   const [armazem] = useState(() => armazemIndexedDb());
   const [caminhaoId, setCaminhaoId] = useState<number | null>(null);
+  const [registrando, setRegistrando] = useState(false);
+  const [confirmacao, setConfirmacao] = useState<string | null>(null);
   useEffect(() => setCaminhaoId(lerEscolha()), []);
 
   const recarregar = useCallback(() => cliente.invalidateQueries({ queryKey: ["motorista"] }), [cliente]);
@@ -89,6 +92,21 @@ export default function Motorista() {
     });
   };
 
+  const registrarOcorrencia = async ({ tipo, descricao, foto }: NovaOcorrencia) => {
+    if (caminhaoId === null) return;
+    setRegistrando(false);
+    await fila.enfileirar({
+      id_local: novoIdLocal(),
+      tipo: "ocorrencia",
+      criado_em: new Date().toISOString(),
+      dados: { caminhao_id: caminhaoId, tipo, descricao },
+      foto,
+    });
+    setConfirmacao(
+      navigator.onLine ? "Ocorrência registrada." : "Ocorrência guardada; será enviada quando houver rede.",
+    );
+  };
+
   const checkinsNaFila = fila.pendentes
     .filter((p) => p.tipo === "checkin" && p.dados.caminhao_id === caminhaoId)
     .map((p) => p.dados.acao as AcaoCheckin);
@@ -123,8 +141,29 @@ export default function Motorista() {
               <div aria-hidden className="mx-4 h-64 rounded-lg bg-fundo-sutil" />
             )}
           </>
+        ) : registrando ? (
+          <FormOcorrencia onEnviar={registrarOcorrencia} onCancelar={() => setRegistrando(false)} />
         ) : painel ? (
-          <PainelViagem painel={painel} pendentes={checkinsNaFila} onCheckin={checkin} />
+          <>
+            {confirmacao && (
+              <p role="status" className="mx-4 mt-4 rounded-md bg-fundo-sutil px-3 py-2 text-[14px]">
+                {confirmacao}
+              </p>
+            )}
+            <PainelViagem painel={painel} pendentes={checkinsNaFila} onCheckin={checkin} />
+            <div className="border-t border-linha px-4 py-5">
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmacao(null);
+                  setRegistrando(true);
+                }}
+                className="h-12 w-full rounded-lg border border-linha text-[15px] font-medium"
+              >
+                Registrar ocorrência
+              </button>
+            </div>
+          </>
         ) : (
           <div aria-hidden className="mx-4 mt-5 h-64 rounded-lg bg-fundo-sutil" />
         )}
