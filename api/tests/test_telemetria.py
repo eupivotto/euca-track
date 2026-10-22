@@ -148,7 +148,7 @@ def test_estado_invalido_422(cliente, ids):
 def test_post_responde_quantas_recebeu(cliente, ids):
     corpo = [leitura_json(c, ids["fazenda"], "CARREGANDO", 0) for c in ids["caminhoes"][:3]]
     r = cliente.post("/telemetria", json=corpo, headers=CABECALHO)
-    assert r.status_code == 200 and r.json() == {"recebidas": 3}
+    assert r.status_code == 200 and r.json()["recebidas"] == 3
 
 
 def test_websocket_recebe_caminhao(cliente, ids):

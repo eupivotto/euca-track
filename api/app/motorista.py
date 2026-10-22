@@ -2,7 +2,11 @@
 from datetime import datetime
 from enum import StrEnum
 
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
 from app.estados import Estado
+from app.modelos import Caminhao, Checkin
 
 
 class Acao(StrEnum):
@@ -51,3 +55,24 @@ def passo_atual(estado: str | None, feitas: set[Acao]) -> Passo:
 def assumido(assumido_ate: datetime | None, agora: datetime) -> bool:
     """O caminhão está com o app até assumido_ate (relógio simulado)."""
     return assumido_ate is not None and assumido_ate > agora
+
+
+def controle_simulador(sessao: Session, agora: datetime) -> tuple[list[int], list[int]]:
+    """(assumidos, liberados) para a resposta da telemetria.
+
+    Assumidos: o simulador não termina o carregamento sozinho. Liberados: estão
+    carregando e já têm o check-in de fim nesta viagem; saem com ou sem posse.
+    """
+    assumidos = sessao.scalars(
+        select(Caminhao.id).where(Caminhao.assumido_ate > agora).order_by(Caminhao.id)
+    ).all()
+    liberados = sessao.scalars(
+        select(Caminhao.id)
+        .join(Checkin, Checkin.viagem_id == Caminhao.viagem_atual_id)
+        .where(
+            Caminhao.estado_atual == Estado.CARREGANDO,
+            Checkin.acao == Acao.FIM_CARREGAMENTO,
+        )
+        .order_by(Caminhao.id)
+    ).all()
+    return list(assumidos), list(liberados)

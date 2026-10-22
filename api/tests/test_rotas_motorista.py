@@ -110,3 +110,44 @@ def test_checkin_difunde_o_caminhao(cliente, sessao, ids):
         depois = ws.receive_json()
     assert mensagem["tipo"] == "caminhao" and mensagem["caminhao"]["assumido"] is True
     assert depois["tipo"] == "caminhao" and depois["caminhao"]["id"] == c
+
+
+def telemetria(cliente, c, f, estado, minuto):
+    from tests.test_telemetria import CABECALHO, leitura_json
+
+    r = cliente.post("/telemetria", json=[leitura_json(c, f, estado, minuto)], headers=CABECALHO)
+    assert r.status_code == 200
+    return r.json()
+
+
+def test_telemetria_devolve_assumidos(cliente, sessao, ids):
+    c, d, f = ids["caminhoes"][0], ids["caminhoes"][1], ids["fazenda"]
+    em(sessao, c, f, "EM_TRANSITO_VAZIO", 0)
+    cliente.post("/motorista/assumir", json={"caminhao_id": c})
+    r = telemetria(cliente, d, f, "EM_TRANSITO_VAZIO", 1)
+    assert r == {"recebidas": 1, "assumidos": [c], "liberados": []}
+    # Passada a posse (60 min simulados), o caminhão volta ao simulador.
+    assert telemetria(cliente, d, f, "EM_TRANSITO_VAZIO", 61)["assumidos"] == []
+
+
+def test_telemetria_libera_quem_finalizou_o_carregamento(cliente, sessao, ids):
+    c, f = ids["caminhoes"][0], ids["fazenda"]
+    em(sessao, c, f, "CARREGANDO", 0)
+    cliente.post("/motorista/assumir", json={"caminhao_id": c})
+    checkin(cliente, c, "INICIO_CARREGAMENTO", "e1")
+    assert telemetria(cliente, c, f, "CARREGANDO", 1)["liberados"] == []
+    checkin(cliente, c, "FIM_CARREGAMENTO", "e2")
+    # Liberado mesmo depois que a posse expira.
+    assert telemetria(cliente, c, f, "CARREGANDO", 90)["liberados"] == [c]
+
+
+def test_viagem_seguinte_nao_herda_a_liberacao(cliente, sessao, ids):
+    c, f = ids["caminhoes"][0], ids["fazenda"]
+    em(sessao, c, f, "CARREGANDO", 0)
+    cliente.post("/motorista/assumir", json={"caminhao_id": c})
+    checkin(cliente, c, "INICIO_CARREGAMENTO", "g1")
+    checkin(cliente, c, "FIM_CARREGAMENTO", "g2")
+    for i, estado in enumerate(["EM_TRANSITO_CARREGADO", "FILA_PATIO", "PESAGEM", "DESCARGA",
+                                "EM_TRANSITO_VAZIO"], start=1):
+        assert telemetria(cliente, c, f, estado, i * 10)["liberados"] == []
+    assert telemetria(cliente, c, f, "CARREGANDO", 60)["liberados"] == []

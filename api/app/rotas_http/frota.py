@@ -11,7 +11,7 @@ from app.config import Settings, get_settings
 from app.db import get_sessao
 from app.estados import ESTADOS_CARREGADO
 from app.modelos import Alerta, Caminhao, Posicao
-from app.motorista import assumido
+from app.motorista import assumido, controle_simulador
 from app.operacao import agora_simulado
 from app.telemetria import CaminhaoDesconhecido, LeituraEntrada, registrar_leituras
 from app.tempo_real import difusor
@@ -76,8 +76,8 @@ def caminhoes(sessao: Session = Depends(get_sessao), settings: Settings = Depend
     ]
 
 
-def _aplicar_lote(sessao: Session, leituras: list[LeituraEntrada]) -> list[dict]:
-    """Grava o lote e devolve as mensagens do WebSocket: caminhões, depois alertas."""
+def _aplicar_lote(sessao: Session, leituras: list[LeituraEntrada]) -> tuple[list[dict], dict]:
+    """Grava o lote. Devolve as mensagens do WebSocket (caminhões, depois alertas) e a resposta."""
     try:
         lote = registrar_leituras(sessao, leituras)
     except CaminhaoDesconhecido as erro:
@@ -85,10 +85,14 @@ def _aplicar_lote(sessao: Session, leituras: list[LeituraEntrada]) -> list[dict]
         raise HTTPException(status_code=422, detail=str(erro)) from erro
     sessao.commit()
     agora = agora_simulado(sessao, ZoneInfo(get_settings().fuso))
-    return [
+    mensagens = [
         {"tipo": "caminhao", "caminhao": montar_caminhao_saida(sessao, sessao.get(Caminhao, i), agora)}
         for i in lote.caminhoes
     ] + [{"tipo": "alerta", "alerta": alerta_saida(sessao.get(Alerta, i))} for i in lote.alertas]
+    # O lote mais recente define o "agora" da posse do app.
+    assumidos, liberados = controle_simulador(sessao, max((l.momento for l in leituras), default=agora))
+    resposta = {"recebidas": len(leituras), "assumidos": assumidos, "liberados": liberados}
+    return mensagens, resposta
 
 
 @router.post("/telemetria")
@@ -100,10 +104,11 @@ async def telemetria(
 ):
     if x_token != settings.token_telemetria:
         raise HTTPException(status_code=401, detail="Token de telemetria inválido")
-    mensagens = await run_in_threadpool(_aplicar_lote, sessao, leituras)
+    mensagens, resposta = await run_in_threadpool(_aplicar_lote, sessao, leituras)
     for mensagem in mensagens:
         await difusor.difundir(mensagem)
-    return {"recebidas": len(leituras)}
+    # assumidos e liberados: o simulador segura ou solta o carregamento desses caminhões.
+    return resposta
 
 
 @router.websocket("/ws/frota")
