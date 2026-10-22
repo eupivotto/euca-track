@@ -9,7 +9,7 @@ function foto(tamanho: number, tipo = "image/jpeg") {
 
 describe("FormOcorrencia", () => {
   it("só envia com tipo e descrição", async () => {
-    const onEnviar = vi.fn();
+    const onEnviar = vi.fn().mockResolvedValue(true);
     render(<FormOcorrencia onEnviar={onEnviar} onCancelar={() => {}} />);
     const enviar = screen.getByRole("button", { name: "Registrar ocorrência" });
     expect(enviar).toBeDisabled();
@@ -22,7 +22,7 @@ describe("FormOcorrencia", () => {
   });
 
   it("envia a foto escolhida", async () => {
-    const onEnviar = vi.fn();
+    const onEnviar = vi.fn().mockResolvedValue(true);
     render(<FormOcorrencia onEnviar={onEnviar} onCancelar={() => {}} />);
     await userEvent.click(screen.getByRole("radio", { name: "Problema mecânico" }));
     await userEvent.type(screen.getByLabelText("O que aconteceu"), "Freio");
@@ -33,8 +33,18 @@ describe("FormOcorrencia", () => {
     expect(onEnviar).toHaveBeenCalledWith({ tipo: "MECANICA", descricao: "Freio", foto: arquivo });
   });
 
+  it("se não der para guardar no celular, avisa e mantém o que foi escrito", async () => {
+    const onEnviar = vi.fn().mockResolvedValue(false);
+    render(<FormOcorrencia onEnviar={onEnviar} onCancelar={() => {}} />);
+    await userEvent.click(screen.getByRole("radio", { name: "Pneu" }));
+    await userEvent.type(screen.getByLabelText("O que aconteceu"), "Pneu furado");
+    await userEvent.click(screen.getByRole("button", { name: "Registrar ocorrência" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Não foi possível guardar no celular");
+    expect(screen.getByLabelText("O que aconteceu")).toHaveValue("Pneu furado");
+  });
+
   it("foto acima de 10 MB é recusada antes de enviar", async () => {
-    const onEnviar = vi.fn();
+    const onEnviar = vi.fn().mockResolvedValue(true);
     render(<FormOcorrencia onEnviar={onEnviar} onCancelar={() => {}} />);
     await userEvent.upload(screen.getByLabelText("Tirar ou escolher foto"), foto(10 * 1024 * 1024 + 1));
     expect(screen.getByRole("alert")).toHaveTextContent("A foto passa de 10 MB");
@@ -42,7 +52,7 @@ describe("FormOcorrencia", () => {
   });
 
   it("descrição para em 500 caracteres e mostra o contador", async () => {
-    render(<FormOcorrencia onEnviar={() => {}} onCancelar={() => {}} />);
+    render(<FormOcorrencia onEnviar={async () => true} onCancelar={() => {}} />);
     const campo = screen.getByLabelText("O que aconteceu");
     await userEvent.click(campo);
     await userEvent.paste("a".repeat(520));

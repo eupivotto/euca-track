@@ -6,11 +6,13 @@ import type { AcaoCheckin, PainelMotorista } from "@/lib/tipos";
 export function PainelViagem({
   painel,
   pendentes,
+  online,
   onCheckin,
 }: {
   painel: PainelMotorista;
-  // Ações de check-in ainda na fila offline.
+  // Check-ins na fila ou a caminho: o botão fica parado até o painel mudar de passo.
   pendentes: AcaoCheckin[];
+  online: boolean;
   onCheckin: (acao: AcaoCheckin) => void;
 }) {
   const { caminhao, destino, passo } = painel;
@@ -22,7 +24,7 @@ export function PainelViagem({
     <section aria-label="Viagem" className="px-4 pt-5 pb-6">
       {!painel.assumido && (
         <p role="status" className="mb-4 rounded-md bg-atencao-fundo px-3 py-2 text-[14px] text-atencao">
-          O simulador retomou este caminhão. Abra o app de novo para assumir.
+          O caminhão ainda não está com o app; ele será assumido em instantes.
         </p>
       )}
       <h1 className="text-[24px] leading-tight font-semibold tracking-[-0.01em]">{ROTULO_PASSO[passo]}</h1>
@@ -48,14 +50,14 @@ export function PainelViagem({
         </p>
       )}
 
-      {acao && (
+      {acao && painel.assumido && (
         <button
           type="button"
           disabled={naFila}
           onClick={() => onCheckin(acao)}
           className="mt-6 h-14 w-full rounded-lg bg-primaria text-[16px] font-semibold text-white disabled:bg-trilho disabled:text-tinta-suave"
         >
-          {naFila ? "Enviando quando houver rede" : TEXTO_BOTAO[acao]}
+          {naFila ? (online ? "Enviando…" : "Enviando quando houver rede") : TEXTO_BOTAO[acao]}
         </button>
       )}
     </section>

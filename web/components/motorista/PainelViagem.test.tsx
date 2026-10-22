@@ -22,7 +22,7 @@ function painel(passo: Passo, extra: Partial<PainelMotorista> = {}): PainelMotor
 describe("PainelViagem", () => {
   it("na fazenda, o botão inicia o carregamento", async () => {
     const onCheckin = vi.fn();
-    render(<PainelViagem painel={painel("INICIAR_CARREGAMENTO")} pendentes={[]} onCheckin={onCheckin} />);
+    render(<PainelViagem painel={painel("INICIAR_CARREGAMENTO")} pendentes={[]} online onCheckin={onCheckin} />);
     expect(screen.getByText("Fazenda Cervo")).toBeInTheDocument();
     expect(screen.getByText("48 km")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Iniciar carregamento" }));
@@ -36,6 +36,7 @@ describe("PainelViagem", () => {
           caminhao: caminhao("TLG1A23", "EM_TRANSITO_CARREGADO", 55, { eta: "2026-10-21T18:30:00Z" }),
         })}
         pendentes={[]}
+        online
         onCheckin={() => {}}
       />,
     );
@@ -46,14 +47,31 @@ describe("PainelViagem", () => {
 
   it("check-in na fila desabilita o botão até haver rede", () => {
     render(
-      <PainelViagem painel={painel("FINALIZAR_CARREGAMENTO")} pendentes={["FIM_CARREGAMENTO"]} onCheckin={() => {}} />,
+      <PainelViagem
+        painel={painel("FINALIZAR_CARREGAMENTO")}
+        pendentes={["FIM_CARREGAMENTO"]}
+        online={false}
+        onCheckin={() => {}}
+      />,
     );
     const botao = screen.getByRole("button", { name: "Enviando quando houver rede" });
     expect(botao).toBeDisabled();
   });
 
-  it("sem posse avisa que o simulador retomou o caminhão", () => {
-    render(<PainelViagem painel={painel("INICIAR_CARREGAMENTO", { assumido: false })} pendentes={[]} onCheckin={() => {}} />);
-    expect(screen.getByRole("status")).toHaveTextContent("O simulador retomou este caminhão");
+  it("com rede, check-in a caminho mostra só Enviando", () => {
+    render(
+      <PainelViagem painel={painel("INICIAR_CARREGAMENTO")} pendentes={["INICIO_CARREGAMENTO"]} online onCheckin={() => {}} />,
+    );
+    expect(screen.getByRole("button", { name: "Enviando…" })).toBeDisabled();
+  });
+
+  it("sem posse avisa e não oferece check-in até o app assumir", () => {
+    render(
+      <PainelViagem painel={painel("INICIAR_CARREGAMENTO", { assumido: false })} pendentes={[]} online onCheckin={() => {}} />,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "O caminhão ainda não está com o app; ele será assumido em instantes.",
+    );
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 });

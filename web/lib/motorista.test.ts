@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { caminhao } from "./fabricas.test-util";
 import {
   acaoDoPasso,
+  acoesEmEspera,
   confirmacaoOcorrencia,
   guardarPainel,
   lerPainelGuardado,
@@ -61,5 +62,24 @@ describe("confirmacaoOcorrencia", () => {
   it("guardada enquanto está na fila, registrada quando sai", () => {
     expect(confirmacaoOcorrencia("o1", ["o1"])).toBe("Ocorrência guardada; será enviada quando houver rede.");
     expect(confirmacaoOcorrencia("o1", [])).toBe("Ocorrência registrada.");
+  });
+});
+
+describe("acoesEmEspera", () => {
+  it("check-in enviado segura o botão até o passo mudar", () => {
+    const enviada = { id_local: "c1", acao: "INICIO_CARREGAMENTO" as const, passo: "INICIAR_CARREGAMENTO" as const };
+    // Saiu da fila, mas o painel ainda não recarregou: continua esperando.
+    expect(acoesEmEspera([], enviada, "INICIAR_CARREGAMENTO", [])).toEqual(["INICIO_CARREGAMENTO"]);
+    // O painel mudou de passo: libera o próximo botão.
+    expect(acoesEmEspera([], enviada, "FINALIZAR_CARREGAMENTO", [])).toEqual([]);
+  });
+
+  it("check-in recusado pela API libera o botão", () => {
+    const enviada = { id_local: "c1", acao: "INICIO_CARREGAMENTO" as const, passo: "INICIAR_CARREGAMENTO" as const };
+    expect(acoesEmEspera([], enviada, "INICIAR_CARREGAMENTO", ["c1"])).toEqual([]);
+  });
+
+  it("o que está na fila também espera", () => {
+    expect(acoesEmEspera(["FIM_CARREGAMENTO"], null, "FINALIZAR_CARREGAMENTO", [])).toEqual(["FIM_CARREGAMENTO"]);
   });
 });

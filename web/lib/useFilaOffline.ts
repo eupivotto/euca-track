@@ -1,29 +1,29 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { type Armazem, enviarPendente, enviarPendentes, type Pendente } from "./filaOffline";
+import { type Armazem, enviarPendente, enviarPendentes, type Pendente, type Resultado } from "./filaOffline";
 
 const INTERVALO_MS = 15_000;
 
-/**
- * Fila local do app: guarda, envia na hora se der, de novo quando a rede volta
- * e a cada 15 s. aoEnviar roda depois de algum envio aceito (ex.: recarregar o painel).
- */
-export function useFilaOffline(
-  armazem: Armazem,
-  enviar: (p: Pendente) => Promise<Response> = enviarPendente,
-  aoEnviar?: () => void,
-) {
+type Opcoes = {
+  enviar?: (p: Pendente) => Promise<Response>;
+  // Depois de algum envio aceito (ex.: recarregar o painel).
+  aoEnviar?: () => void;
+  // Quando a rede volta, antes de enviar a fila (ex.: renovar a posse do caminhão).
+  aoVoltarRede?: () => Promise<unknown>;
+};
+
+/** Fila local do app: guarda, envia na hora se der, de novo quando a rede volta e a cada 15 s. */
+export function useFilaOffline(armazem: Armazem, opcoes: Opcoes = {}) {
   const [pendentes, setPendentes] = useState<Pendente[]>([]);
-  const [recusados, setRecusados] = useState<string[]>([]);
+  const [recusados, setRecusados] = useState<Resultado["recusados"]>([]);
   const [online, setOnline] = useState(true);
   const enviando = useRef(false);
-  // Refs: os efeitos não se reinscrevem a cada render por causa de funções novas.
-  const atual = useRef({ armazem, enviar, aoEnviar });
-  atual.current = { armazem, enviar, aoEnviar };
-
   // Pedido feito durante um envio em andamento: roda de novo ao terminar, para não esperar 15 s.
   const deNovo = useRef(false);
+  // Refs: os efeitos não se reinscrevem a cada render por causa de funções novas.
+  const atual = useRef({ armazem, opcoes });
+  atual.current = { armazem, opcoes };
 
   const enviarAgora = useCallback(async () => {
     if (enviando.current) {
@@ -34,10 +34,10 @@ export function useFilaOffline(
     try {
       do {
         deNovo.current = false;
-        const { armazem, enviar, aoEnviar } = atual.current;
-        const resultado = await enviarPendentes(armazem, enviar);
-        if (resultado.recusados.length) setRecusados((r) => [...r, ...resultado.recusados.map((x) => x.motivo)]);
-        if (resultado.enviados.length) aoEnviar?.();
+        const { armazem, opcoes } = atual.current;
+        const resultado = await enviarPendentes(armazem, opcoes.enviar ?? enviarPendente);
+        if (resultado.recusados.length) setRecusados((r) => [...r, ...resultado.recusados]);
+        if (resultado.enviados.length) opcoes.aoEnviar?.();
         setPendentes(await armazem.listar());
         if (resultado.parou) break;
       } while (deNovo.current);
@@ -46,20 +46,28 @@ export function useFilaOffline(
     }
   }, []);
 
+  /** Guarda e tenta enviar. false: não deu para guardar no celular (armazenamento cheio ou bloqueado). */
   const enfileirar = useCallback(
-    async (p: Pendente) => {
-      await atual.current.armazem.guardar(p);
+    async (p: Pendente): Promise<boolean> => {
+      try {
+        await atual.current.armazem.guardar(p);
+      } catch {
+        return false;
+      }
       setPendentes(await atual.current.armazem.listar());
       await enviarAgora();
+      return true;
     },
     [enviarAgora],
   );
 
   useEffect(() => {
     setOnline(navigator.onLine);
-    const voltou = () => {
+    const voltou = async () => {
       setOnline(true);
-      void enviarAgora();
+      // Sem rede por mais de 6 min a posse expira: renova antes, senão o check-in guardado volta 409.
+      await atual.current.opcoes.aoVoltarRede?.().catch(() => {});
+      await enviarAgora();
     };
     const caiu = () => setOnline(false);
     window.addEventListener("online", voltou);

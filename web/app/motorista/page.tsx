@@ -9,8 +9,8 @@ import { PainelViagem } from "@/components/motorista/PainelViagem";
 import { assumirCaminhao, buscarCaminhoes, buscarPainelMotorista, soltarCaminhao } from "@/lib/api";
 import { armazemIndexedDb } from "@/lib/armazemIndexedDb";
 import { novoIdLocal } from "@/lib/filaOffline";
-import { confirmacaoOcorrencia, guardarPainel, lerPainelGuardado } from "@/lib/motorista";
-import type { AcaoCheckin } from "@/lib/tipos";
+import { acoesEmEspera, confirmacaoOcorrencia, guardarPainel, lerPainelGuardado } from "@/lib/motorista";
+import type { AcaoCheckin, Passo } from "@/lib/tipos";
 import { useFilaOffline } from "@/lib/useFilaOffline";
 
 const CHAVE = "rota-motorista:caminhao";
@@ -42,10 +42,19 @@ export default function Motorista() {
   const [registrando, setRegistrando] = useState(false);
   // id_local da última ocorrência registrada, para a confirmação acompanhar a fila.
   const [confirmacao, setConfirmacao] = useState<string | null>(null);
+  // Último check-in feito e o passo de quando foi feito: segura o botão até o painel mudar.
+  const [enviada, setEnviada] = useState<{ id_local: string; acao: AcaoCheckin; passo: Passo } | null>(null);
+  const [erroGuardar, setErroGuardar] = useState(false);
   useEffect(() => setCaminhaoId(lerEscolha()), []);
 
   const recarregar = useCallback(() => cliente.invalidateQueries({ queryKey: ["motorista"] }), [cliente]);
-  const fila = useFilaOffline(armazem, undefined, recarregar);
+  // Assume o caminhão ou renova a posse; sem rede, falha e tenta de novo na próxima vez.
+  const renovar = useCallback(async () => {
+    if (caminhaoId === null) return;
+    const novo = await assumirCaminhao(caminhaoId);
+    cliente.setQueryData(["motorista", caminhaoId], novo);
+  }, [caminhaoId, cliente]);
+  const fila = useFilaOffline(armazem, { aoEnviar: recarregar, aoVoltarRede: renovar });
 
   const { data: caminhoes } = useQuery({
     queryKey: ["caminhoes"],
@@ -69,16 +78,11 @@ export default function Motorista() {
   // Assume ao escolher e renova enquanto o app está aberto.
   useEffect(() => {
     if (caminhaoId === null) return;
-    const renovar = () =>
-      assumirCaminhao(caminhaoId)
-        .then((p) => cliente.setQueryData(["motorista", caminhaoId], p))
-        .catch(() => {
-          // Sem rede: tenta de novo no próximo minuto.
-        });
-    void renovar();
-    const intervalo = setInterval(renovar, RENOVAR_MS);
+    const tentar = () => renovar().catch(() => {});
+    void tentar();
+    const intervalo = setInterval(tentar, RENOVAR_MS);
     return () => clearInterval(intervalo);
-  }, [caminhaoId, cliente]);
+  }, [caminhaoId, renovar]);
 
   const escolher = (id: number) => {
     gravarEscolha(id);
@@ -91,34 +95,49 @@ export default function Motorista() {
     setCaminhaoId(null);
   };
 
-  const checkin = (acao: AcaoCheckin) => {
-    if (caminhaoId === null) return;
-    void fila.enfileirar({
-      id_local: novoIdLocal(),
+  const checkin = async (acao: AcaoCheckin) => {
+    if (caminhaoId === null || !painel) return;
+    const id_local = novoIdLocal();
+    setEnviada({ id_local, acao, passo: painel.passo });
+    const guardou = await fila.enfileirar({
+      id_local,
       tipo: "checkin",
       criado_em: new Date().toISOString(),
       dados: { caminhao_id: caminhaoId, acao },
     });
+    if (!guardou) {
+      setEnviada(null);
+      setErroGuardar(true);
+    }
   };
 
-  const registrarOcorrencia = async ({ tipo, descricao, foto }: NovaOcorrencia) => {
-    if (caminhaoId === null) return;
-    setRegistrando(false);
+  const registrarOcorrencia = async ({ tipo, descricao, foto }: NovaOcorrencia): Promise<boolean> => {
+    if (caminhaoId === null) return false;
     const id_local = novoIdLocal();
-    await fila.enfileirar({
+    const guardou = await fila.enfileirar({
       id_local,
       tipo: "ocorrencia",
       criado_em: new Date().toISOString(),
       dados: { caminhao_id: caminhaoId, tipo, descricao },
       foto,
     });
+    // O formulário só fecha com a ocorrência guardada; senão ele avisa e mantém o que foi escrito.
+    if (!guardou) return false;
+    setRegistrando(false);
     // Depois da primeira tentativa de envio, para não piscar "registrada" antes de guardar.
     setConfirmacao(id_local);
+    return true;
   };
 
   const checkinsNaFila = fila.pendentes
     .filter((p) => p.tipo === "checkin" && p.dados.caminhao_id === caminhaoId)
     .map((p) => p.dados.acao as AcaoCheckin);
+  const emEspera = painel ? acoesEmEspera(
+        checkinsNaFila,
+        enviada,
+        painel.passo,
+        fila.recusados.map((r) => r.id_local),
+      ) : checkinsNaFila;
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col text-[15px]">
@@ -128,14 +147,30 @@ export default function Motorista() {
         pendentes={fila.pendentes.length}
         onTrocar={caminhaoId !== null ? trocar : undefined}
       />
+      {erroGuardar && (
+        <div role="alert" className="flex items-start gap-3 border-b border-linha px-4 py-3 text-[14px]">
+          <p className="flex-1">Não foi possível guardar o check-in no celular. Tente de novo.</p>
+          <button type="button" onClick={() => setErroGuardar(false)} className="min-h-11 px-1 text-primaria">
+            Fechar
+          </button>
+        </div>
+      )}
       {fila.recusados.length > 0 && (
         <div role="alert" className="flex items-start gap-3 border-b border-linha px-4 py-3 text-[14px]">
           <ul className="flex-1">
-            {fila.recusados.map((motivo, i) => (
-              <li key={i}>Não foi aplicado: {motivo}.</li>
+            {fila.recusados.map(({ id_local, motivo }) => (
+              <li key={id_local}>Não foi aplicado. {motivo}.</li>
             ))}
           </ul>
-          <button type="button" onClick={fila.dispensarRecusados} className="min-h-11 px-1 text-primaria">
+          <button
+            type="button"
+            onClick={() => {
+              // Sem isto, o check-in recusado voltaria a segurar o botão ao sair da lista.
+              setEnviada(null);
+              fila.dispensarRecusados();
+            }}
+            className="min-h-11 px-1 text-primaria"
+          >
             Fechar
           </button>
         </div>
@@ -162,7 +197,12 @@ export default function Motorista() {
                 )}
               </p>
             )}
-            <PainelViagem painel={painel} pendentes={checkinsNaFila} onCheckin={checkin} />
+            <PainelViagem
+              painel={painel}
+              pendentes={emEspera}
+              online={fila.online}
+              onCheckin={(acao) => void checkin(acao)}
+            />
             <div className="border-t border-linha px-4 py-5">
               <button
                 type="button"

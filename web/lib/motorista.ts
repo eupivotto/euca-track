@@ -55,3 +55,18 @@ export function confirmacaoOcorrencia(idLocal: string, pendentes: string[]): str
     ? "Ocorrência guardada; será enviada quando houver rede."
     : "Ocorrência registrada.";
 }
+
+/**
+ * Check-ins que seguram o botão: os da fila e o último enviado enquanto o painel ainda
+ * mostra o passo de quando foi feito (sem isso, o botão antigo volta até o painel recarregar).
+ * Recusado pela API, o enviado deixa de segurar.
+ */
+export function acoesEmEspera(
+  naFila: AcaoCheckin[],
+  enviada: { id_local: string; acao: AcaoCheckin; passo: Passo } | null,
+  passo: Passo,
+  recusados: string[],
+): AcaoCheckin[] {
+  const esperando = enviada && enviada.passo === passo && !recusados.includes(enviada.id_local);
+  return esperando ? [...new Set([...naFila, enviada.acao])] : naFila;
+}

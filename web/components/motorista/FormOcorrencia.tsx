@@ -14,7 +14,8 @@ export function FormOcorrencia({
   onEnviar,
   onCancelar,
 }: {
-  onEnviar: (o: NovaOcorrencia) => void;
+  // false: não deu para guardar no celular; o formulário fica aberto com o que foi escrito.
+  onEnviar: (o: NovaOcorrencia) => Promise<boolean>;
   onCancelar: () => void;
 }) {
   const [tipo, setTipo] = useState<TipoOcorrencia | null>(null);
@@ -22,6 +23,7 @@ export function FormOcorrencia({
   const [foto, setFoto] = useState<File | undefined>();
   const [erroFoto, setErroFoto] = useState<string | null>(null);
   const [previa, setPrevia] = useState<string | null>(null);
+  const [erroGuardar, setErroGuardar] = useState(false);
 
   useEffect(() => {
     if (!foto || typeof URL.createObjectURL !== "function") return;
@@ -49,9 +51,11 @@ export function FormOcorrencia({
     <form
       aria-label="Registrar ocorrência"
       className="flex flex-col gap-5 px-4 pt-5 pb-8"
-      onSubmit={(e) => {
+      onSubmit={async (e) => {
         e.preventDefault();
-        if (pronto) onEnviar({ tipo, descricao: descricao.trim(), foto });
+        if (!pronto) return;
+        setErroGuardar(false);
+        if (!(await onEnviar({ tipo, descricao: descricao.trim(), foto }))) setErroGuardar(true);
       }}
     >
       <h1 className="text-[20px] font-semibold">Nova ocorrência</h1>
@@ -127,6 +131,11 @@ export function FormOcorrencia({
       </div>
 
       <div className="flex flex-col gap-2">
+        {erroGuardar && (
+          <p role="alert" className="text-[14px] text-atencao">
+            Não foi possível guardar no celular. Libere espaço ou tente sem a foto.
+          </p>
+        )}
         <button
           type="submit"
           disabled={!pronto}
