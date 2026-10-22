@@ -32,3 +32,12 @@ def test_padroes_do_app_do_motorista():
     s = Settings()
     assert s.motorista_assumir_min == 60
     assert s.pasta_fotos == "/dados/fotos" and s.foto_max_mb == 10
+
+
+def test_parametros_das_areas_de_eucalipto():
+    s = Settings()
+    assert (s.regiao_lat_min, s.regiao_lat_max) == (-21.6, -19.8)
+    assert (s.regiao_lon_min, s.regiao_lon_max) == (-52.9, -51.4)
+    assert s.mapbiomas_classe == 9 and s.mapbiomas_url.endswith("brazil_coverage_2024.tif")
+    assert (s.areas_min_ha, s.areas_raio_km, s.areas_maximo) == (500, 150, 8)
+    assert (s.areas_fecho_m, s.areas_simplificar_m) == (60, 30)

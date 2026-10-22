@@ -53,6 +53,24 @@ class Settings(BaseSettings):
     pasta_fotos: str = "/dados/fotos"
     foto_max_mb: float = 10
 
+    # Região do projeto (SPEC 3.1 e 8): recorte das áreas de eucalipto e dos focos
+    regiao_lat_min: float = -21.6
+    regiao_lat_max: float = -19.8
+    regiao_lon_min: float = -52.9
+    regiao_lon_max: float = -51.4
+
+    # Áreas reais de eucalipto (SPEC 3.1): MapBiomas coleção 10, classe 9 = Silvicultura
+    mapbiomas_url: str = (
+        "https://storage.googleapis.com/mapbiomas-public/initiatives/brasil/"
+        "collection_10/lulc/coverage/brazil_coverage_2024.tif"
+    )
+    mapbiomas_classe: int = 9
+    areas_min_ha: float = 500
+    areas_raio_km: float = 150
+    areas_maximo: int = 8
+    areas_fecho_m: float = 60  # une talhões separados por aceiros e estradas internas
+    areas_simplificar_m: float = 30
+
     # Rotas (SPEC seção 5)
     osrm_url: str = "https://router.project-osrm.org"
     fator_linha_reta: float = 1.3
