@@ -21,6 +21,7 @@ export function caminhao(
     eta: null,
     fazenda: null,
     alertas_abertos: [],
+    assumido: false,
     ...extra,
   };
 }

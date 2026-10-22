@@ -32,6 +32,8 @@ export type Caminhao = {
   posicao: Posicao | null;
   eta: string | null;
   alertas_abertos: TipoAlerta[];
+  // Caminhão com o app do motorista.
+  assumido: boolean;
 };
 
 export type Alerta = {
@@ -96,9 +98,45 @@ export type ViagemDetalhe = ViagemResumo & {
   eventos: { estado: Estado; momento: string }[];
 };
 
+export type Passo =
+  | "INDO_PARA_FAZENDA"
+  | "INICIAR_CARREGAMENTO"
+  | "FINALIZAR_CARREGAMENTO"
+  | "AGUARDANDO_SAIDA"
+  | "INDO_PARA_FABRICA"
+  | "NA_FABRICA";
+
+export type AcaoCheckin = "INICIO_CARREGAMENTO" | "FIM_CARREGAMENTO";
+
+export type PainelMotorista = {
+  caminhao: Caminhao;
+  assumido: boolean;
+  assumido_ate: string | null;
+  passo: Passo;
+  destino: { fazenda_id: number; nome: string; distancia_km: number | null } | null;
+  viagem_id: number | null;
+  checkins: { acao: AcaoCheckin; momento: string }[];
+  agora: string;
+};
+
+export type TipoOcorrencia = "MECANICA" | "PNEU" | "ACIDENTE" | "ESTRADA" | "OUTRO";
+
+export type Ocorrencia = {
+  id: number;
+  caminhao_id: number;
+  placa: string;
+  viagem_id: number | null;
+  tipo: TipoOcorrencia;
+  descricao: string;
+  // Relativa à API: passar por urlApi.
+  foto_url: string | null;
+  momento: string;
+};
+
 export type MensagemFrota =
   | { tipo: "caminhao"; caminhao: Caminhao }
-  | { tipo: "alerta"; alerta: Alerta };
+  | { tipo: "alerta"; alerta: Alerta }
+  | { tipo: "ocorrencia"; ocorrencia: Ocorrencia };
 
 export type Conexao = "conectando" | "conectado" | "reconectando";
 
