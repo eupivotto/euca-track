@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { caminhao } from "./fabricas.test-util";
-import { acaoDoPasso, guardarPainel, lerPainelGuardado, ROTULO_PASSO, TEXTO_BOTAO } from "./motorista";
+import {
+  acaoDoPasso,
+  confirmacaoOcorrencia,
+  guardarPainel,
+  lerPainelGuardado,
+  ROTULO_PASSO,
+  TEXTO_BOTAO,
+} from "./motorista";
 import type { PainelMotorista } from "./tipos";
 
 describe("motorista", () => {
@@ -47,5 +54,12 @@ describe("painel guardado", () => {
     } finally {
       Storage.prototype.getItem = original;
     }
+  });
+});
+
+describe("confirmacaoOcorrencia", () => {
+  it("guardada enquanto está na fila, registrada quando sai", () => {
+    expect(confirmacaoOcorrencia("o1", ["o1"])).toBe("Ocorrência guardada; será enviada quando houver rede.");
+    expect(confirmacaoOcorrencia("o1", [])).toBe("Ocorrência registrada.");
   });
 });

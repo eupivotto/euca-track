@@ -9,7 +9,7 @@ import { PainelViagem } from "@/components/motorista/PainelViagem";
 import { assumirCaminhao, buscarCaminhoes, buscarPainelMotorista, soltarCaminhao } from "@/lib/api";
 import { armazemIndexedDb } from "@/lib/armazemIndexedDb";
 import { novoIdLocal } from "@/lib/filaOffline";
-import { guardarPainel, lerPainelGuardado } from "@/lib/motorista";
+import { confirmacaoOcorrencia, guardarPainel, lerPainelGuardado } from "@/lib/motorista";
 import type { AcaoCheckin } from "@/lib/tipos";
 import { useFilaOffline } from "@/lib/useFilaOffline";
 
@@ -40,6 +40,7 @@ export default function Motorista() {
   const [armazem] = useState(() => armazemIndexedDb());
   const [caminhaoId, setCaminhaoId] = useState<number | null>(null);
   const [registrando, setRegistrando] = useState(false);
+  // id_local da última ocorrência registrada, para a confirmação acompanhar a fila.
   const [confirmacao, setConfirmacao] = useState<string | null>(null);
   useEffect(() => setCaminhaoId(lerEscolha()), []);
 
@@ -103,16 +104,16 @@ export default function Motorista() {
   const registrarOcorrencia = async ({ tipo, descricao, foto }: NovaOcorrencia) => {
     if (caminhaoId === null) return;
     setRegistrando(false);
+    const id_local = novoIdLocal();
     await fila.enfileirar({
-      id_local: novoIdLocal(),
+      id_local,
       tipo: "ocorrencia",
       criado_em: new Date().toISOString(),
       dados: { caminhao_id: caminhaoId, tipo, descricao },
       foto,
     });
-    setConfirmacao(
-      navigator.onLine ? "Ocorrência registrada." : "Ocorrência guardada; será enviada quando houver rede.",
-    );
+    // Depois da primeira tentativa de envio, para não piscar "registrada" antes de guardar.
+    setConfirmacao(id_local);
   };
 
   const checkinsNaFila = fila.pendentes
@@ -155,7 +156,10 @@ export default function Motorista() {
           <>
             {confirmacao && (
               <p role="status" className="mx-4 mt-4 rounded-md bg-fundo-sutil px-3 py-2 text-[14px]">
-                {confirmacao}
+                {confirmacaoOcorrencia(
+                  confirmacao,
+                  fila.pendentes.map((p) => p.id_local),
+                )}
               </p>
             )}
             <PainelViagem painel={painel} pendentes={checkinsNaFila} onCheckin={checkin} />

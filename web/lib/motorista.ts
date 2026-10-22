@@ -48,3 +48,10 @@ export function lerPainelGuardado(caminhaoId: number): PainelMotorista | undefin
     return undefined;
   }
 }
+
+/** Texto depois de registrar: muda sozinho de "guardada" para "registrada" quando a fila envia. */
+export function confirmacaoOcorrencia(idLocal: string, pendentes: string[]): string {
+  return pendentes.includes(idLocal)
+    ? "Ocorrência guardada; será enviada quando houver rede."
+    : "Ocorrência registrada.";
+}
