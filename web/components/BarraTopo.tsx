@@ -24,8 +24,8 @@ export function BarraTopo({ ativa }: { ativa: string }) {
           );
         })}
       </nav>
-      <span className="ml-auto rounded bg-atencao-fundo px-2 py-[3px] text-xs whitespace-nowrap text-atencao">
-        Dados simulados
+      <span className="ml-auto max-w-[24rem] rounded bg-atencao-fundo px-2 py-[3px] text-xs leading-tight text-atencao">
+        Áreas de eucalipto: MapBiomas (2024). Frota e viagens: dados simulados.
       </span>
     </header>
   );

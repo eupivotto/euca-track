@@ -2,6 +2,7 @@
 
 import maplibregl, { type GeoJSONSource, type Map as MapaLibre } from "maplibre-gl";
 import { useEffect, useRef } from "react";
+import { ATRIBUICAO_MAPBIOMAS, fonteGeo } from "@/lib/mapa";
 import { posicaoNoTempo } from "@/lib/replay";
 import type { ViagemDetalhe } from "@/lib/tipos";
 
@@ -55,7 +56,8 @@ export function MapaReplay({ viagem, cursor }: { viagem: ViagemDetalhe; cursor: 
       m.resize();
       m.fitBounds(limites, { padding: 48, duration: 0 });
       const vazio = { type: "FeatureCollection" as const, features: [] };
-      m.addSource("rota", { type: "geojson", data: viagem.rota ? linha(viagem.rota.coordinates) : vazio });
+      // A rota sai de uma área do MapBiomas: leva a atribuição.
+      m.addSource("rota", fonteGeo(viagem.rota ? linha(viagem.rota.coordinates) : vazio, ATRIBUICAO_MAPBIOMAS));
       m.addSource("percorrido", { type: "geojson", data: vazio });
       m.addSource("caminhao", { type: "geojson", data: vazio });
       m.addLayer({

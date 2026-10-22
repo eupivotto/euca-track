@@ -3,9 +3,11 @@ import { describe, expect, it } from "vitest";
 import { BarraTopo } from "./BarraTopo";
 
 describe("BarraTopo", () => {
-  it("mostra o selo de dados simulados", () => {
+  it("mostra o selo da Fase 3: áreas do MapBiomas, frota simulada", () => {
     render(<BarraTopo ativa="/" />);
-    expect(screen.getByText("Dados simulados")).toBeInTheDocument();
+    const selo = screen.getByText("Áreas de eucalipto: MapBiomas (2024). Frota e viagens: dados simulados.");
+    // Em tela estreita o selo quebra em duas linhas em vez de empurrar o menu.
+    expect(selo).not.toHaveClass("whitespace-nowrap");
   });
 
   it("marca a tela ativa", () => {

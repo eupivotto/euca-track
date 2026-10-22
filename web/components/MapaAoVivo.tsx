@@ -3,6 +3,7 @@
 import maplibregl, { type GeoJSONSource, type Map as MapaLibre } from "maplibre-gl";
 import { useEffect, useRef } from "react";
 import { MARCADOR_ESTADO } from "@/lib/estados";
+import { ATRIBUICAO_MAPBIOMAS, fonteGeo, limitesDe } from "@/lib/mapa";
 import type { Caminhao, ColecaoGeo } from "@/lib/tipos";
 
 const ESTILO = "https://tiles.openfreemap.org/styles/positron";
@@ -57,7 +58,7 @@ export function MapaAoVivo({
     m.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
     m.on("load", () => {
       const vazio = { type: "FeatureCollection" as const, features: [] };
-      m.addSource("fazendas", { type: "geojson", data: vazio });
+      m.addSource("fazendas", fonteGeo(vazio, ATRIBUICAO_MAPBIOMAS));
       m.addSource("rotas", { type: "geojson", data: vazio });
       m.addSource("caminhoes", { type: "geojson", data: vazio });
 
@@ -129,8 +130,18 @@ export function MapaAoVivo({
     else m.once("dados-prontos", () => aplicar(m));
   };
 
+  // As áreas vão até 150 km da fábrica: na primeira carga, enquadra todas.
+  const enquadrado = useRef(false);
   useEffect(() => {
-    if (fazendas) quandoPronto((m) => (m.getSource("fazendas") as GeoJSONSource).setData(fazendas as never));
+    if (!fazendas) return;
+    quandoPronto((m) => {
+      (m.getSource("fazendas") as GeoJSONSource).setData(fazendas as never);
+      const limites = limitesDe(fazendas);
+      if (limites && !enquadrado.current) {
+        enquadrado.current = true;
+        m.fitBounds(limites, { padding: 32, duration: 0 });
+      }
+    });
   }, [fazendas]);
 
   useEffect(() => {
