@@ -1,8 +1,10 @@
 import httpx
+from geoalchemy2.shape import to_shape
 import pytest
 from shapely.geometry import Point
 from sqlalchemy import func, select
 
+from app.geo import distancia_km
 from app.modelos import Fazenda, Rota
 from shapely.geometry import box
 
@@ -72,10 +74,12 @@ def test_usa_linha_reta_quando_osrm_falha(sessao, settings):
     rotas = sessao.scalars(select(Rota)).all()
     # cada área avisa duas vezes: carregamento no centro e rota em linha reta
     assert len(rotas) == 8 and len(avisos) == 16
-    santa_luzia = sessao.scalar(select(Fazenda.id).where(Fazenda.nome == "Fazenda Santa Luzia"))
-    rota = next(r for r in rotas if r.fazenda_id == santa_luzia)
-    assert rota.distancia_km == pytest.approx(41.7 * 1.3, abs=0.7)
-    assert all("Fazenda Santa Luzia" in a for a in avisos[:2])
+    primeira = sessao.scalars(select(Fazenda).order_by(Fazenda.id)).first()
+    centro = to_shape(primeira.centro)
+    rota = next(r for r in rotas if r.fazenda_id == primeira.id)
+    # sem /nearest a rota sai do centro da área
+    assert rota.distancia_km == pytest.approx(distancia_km((centro.x, centro.y), (-51.76, -20.62)) * 1.3, rel=0.01)
+    assert all(primeira.nome in a for a in avisos[:2])
 
 
 def test_conexao_recusada_tambem_cai_no_fallback(sessao, settings):

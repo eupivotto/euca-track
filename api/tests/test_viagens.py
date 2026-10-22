@@ -24,7 +24,7 @@ def test_viagem_com_pontos_e_eventos_em_ordem(cliente, sessao, ids):  # noqa: F8
     enviar(sessao, c, f, "EM_TRANSITO_CARREGADO", 20, MEIO_ROTA)
     viagem_id = sessao.scalars(select(Viagem.id)).one()
     r = cliente.get(f"/viagens/{viagem_id}").json()
-    assert r["placa"].startswith("TLG") and r["fazenda"].startswith("Fazenda")
+    assert r["placa"].startswith("TLG") and r["fazenda"].startswith("Área de eucalipto")
     assert r["toneladas"] == 55 and r["status"] == "EM_ANDAMENTO" and r["fim"] is None
     assert [p["momento"] for p in r["pontos"]] == sorted(p["momento"] for p in r["pontos"])
     assert [(p["lon"], p["lat"]) for p in r["pontos"]] == [INICIO_ROTA, INICIO_ROTA, MEIO_ROTA]

@@ -240,7 +240,7 @@ def test_caminhao_saida_tem_eta_e_fazenda(cliente, ids):
     corpo = [leitura_json(c, f, "CARREGANDO", 0), leitura_json_em(c, f, "EM_TRANSITO_CARREGADO", 1)]
     cliente.post("/telemetria", json=corpo, headers=CABECALHO)
     saida = next(x for x in cliente.get("/caminhoes").json() if x["id"] == c)
-    assert saida["eta"] is not None and saida["fazenda"].startswith("Fazenda")
+    assert saida["eta"] is not None and saida["fazenda"].startswith("Área de eucalipto")
 
 
 def test_leitura_grava_fazenda_de_destino(sessao, ids):

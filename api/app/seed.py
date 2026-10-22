@@ -1,31 +1,43 @@
-"""Dados de referência fictícios (SPEC seções 3 e 4).
+"""Dados de referência (SPEC seções 3 e 4).
+
+Fábrica, frota e motoristas são fictícios. As fazendas são as 8 áreas reais
+de eucalipto do MapBiomas (SPEC 3.1), lidas de app/dados/areas_eucalipto.geojson.
 
 Uso: python -m app.seed
 """
+import json
 import random
 import string
+from pathlib import Path
 
 from geoalchemy2.shape import from_shape
-from shapely.geometry import Point, Polygon
+from shapely.geometry import Point, shape
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.areas import ARQUIVO_AREAS, AreaEucalipto
 from app.config import Settings, get_settings
-from app.geo import quadrado_fazenda
 from app.modelos import Caminhao, Fabrica, Fazenda, Motorista
 
 FABRICA = ("Fábrica Modelo Três Lagoas", -20.6200, -51.7600)
 
-FAZENDAS = [
-    ("Fazenda Santa Luzia", -20.9500, -51.9500, 3200),
-    ("Fazenda Boa Vista", -20.4500, -52.0500, 2800),
-    ("Fazenda Três Irmãos", -21.1000, -52.3000, 4100),
-    ("Fazenda Água Limpa", -20.3000, -51.8500, 2500),
-    ("Fazenda Cervo", -20.8000, -52.4000, 3600),
-    ("Fazenda São Bento", -21.2500, -51.9000, 3000),
-    ("Fazenda Morada do Sol", -20.5500, -52.5500, 4400),
-    ("Fazenda Ribeirão", -20.1500, -52.2500, 2700),
-]
+
+def carregar_areas(caminho: Path = ARQUIVO_AREAS) -> list[AreaEucalipto]:
+    if not caminho.exists():
+        raise FileNotFoundError(
+            f"{caminho} não existe. Gere com: python -m app.scripts.exportar_mapbiomas "
+            "&& python -m app.scripts.gerar_areas_eucalipto"
+        )
+    return [
+        AreaEucalipto(
+            nome=f["properties"]["nome"],
+            area_ha=f["properties"]["area_ha"],
+            geom=shape(f["geometry"]),
+            centro=Point(f["properties"]["centro"]),
+        )
+        for f in json.loads(caminho.read_text(encoding="utf-8"))["features"]
+    ]
+
 
 TOTAL_CAMINHOES = 20
 TOTAL_RODOTREM = 12
@@ -71,13 +83,13 @@ def semear(sessao: Session, settings: Settings) -> None:
     nome, lat, lon = FABRICA
     sessao.add(Fabrica(nome=nome, geom=from_shape(Point(lon, lat), srid=4326)))
 
-    for nome, lat, lon, area in FAZENDAS:
+    for area in carregar_areas():
         sessao.add(
             Fazenda(
-                nome=nome,
-                area_ha=area,
-                centro=from_shape(Point(lon, lat), srid=4326),
-                geom=from_shape(Polygon(quadrado_fazenda(lat, lon, area)), srid=4326),
+                nome=area.nome,
+                area_ha=area.area_ha,
+                centro=from_shape(area.centro, srid=4326),
+                geom=from_shape(area.geom, srid=4326),
             )
         )
 

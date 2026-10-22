@@ -76,4 +76,4 @@ def test_chegadas_nas_proximas_duas_horas(cliente, sessao, ids):  # noqa: F811
     assert [c["caminhao_id"] for c in chegadas] == [perto]
     eta = datetime.fromisoformat(chegadas[0]["eta"])
     assert abs((eta - (DEZ + timedelta(minutes=30))).total_seconds()) < 60
-    assert chegadas[0]["fazenda"].startswith("Fazenda")
+    assert chegadas[0]["fazenda"].startswith("Área de eucalipto")
