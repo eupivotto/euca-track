@@ -30,4 +30,5 @@ Painel de operações florestais em tempo real: logística de madeira (fazendas 
 - Migrações: `docker compose exec api alembic upgrade head`
 - Seed: `docker compose exec api python -m app.seed`
 - Recalcular todas as rotas fazenda → fábrica (OSRM): `docker compose exec api python -m app.scripts.gerar_rotas`
+- Regerar as áreas de eucalipto (MapBiomas): `docker compose exec api python -m app.scripts.exportar_mapbiomas` e depois `python -m app.scripts.gerar_areas_eucalipto` (trocar as áreas exige zerar o banco: `docker volume rm eucatrack_dados_db`)
 - Painel: http://localhost/ (Nginx: `/api/` → API, `/ws/` → WebSocket, `/` → web)

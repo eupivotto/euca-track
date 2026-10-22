@@ -2,7 +2,7 @@
 
 Painel de operações florestais em tempo real: caminhões levando madeira das fazendas até a fábrica, acompanhados ao vivo no mapa, com a meta do dia no topo.
 
-Projeto de portfólio. Frota, motoristas, viagens e fazendas são **dados simulados**; nenhum dado é de empresa real. A especificação completa está em `docs/SPEC.md`.
+Projeto de portfólio. Frota, motoristas e viagens são **dados simulados**; nenhum dado é de empresa real. As fazendas são áreas reais de plantio de eucalipto mapeadas pelo MapBiomas, com nomes genéricos e sem indicar proprietário. A especificação completa está em `docs/SPEC.md`.
 
 ## Subir
 
@@ -14,7 +14,7 @@ docker compose up -d --build
 
 Depois abra http://localhost/. Na subida, o serviço `preparo` aplica as migrações, cria os dados simulados e calcula as rotas que faltarem; a API só começa depois dele, e o simulador começa sozinho em seguida.
 
-As rotas vêm do servidor público do OSRM, uma consulta por fazenda, só na primeira subida. Se ele não responder, cada rota vira uma linha reta aproximada (com aviso em `docker compose logs preparo`). Para recalcular todas: `docker compose exec api python -m app.scripts.gerar_rotas`.
+As rotas vêm do servidor público do OSRM, só na primeira subida: para cada fazenda, o ponto de carregamento é a estrada mais próxima da borda da área (12 consultas ao `/nearest`), e dali sai a rota até a fábrica. Com uma consulta por segundo, isso leva uns 2 minutos. Se ele não responder, cada rota vira uma linha reta aproximada (com aviso em `docker compose logs preparo`). Para recalcular todas: `docker compose exec api python -m app.scripts.gerar_rotas`.
 
 ## Telas
 
@@ -56,6 +56,23 @@ A posse dura 6 minutos reais sem contato; enquanto o app está aberto, ele renov
 
 Instalar como app e abrir sem rede exigem HTTPS (ou `localhost`), porque o navegador só registra o service worker em contexto seguro. Pelo IP da rede local (`http://192.168.x.x/`), o app funciona e guarda os envios sem rede com a página aberta, mas não instala nem abre offline.
 
+## Áreas de eucalipto
+
+As 8 fazendas são as maiores áreas de silvicultura (classe 9 da legenda do MapBiomas, [códigos de legenda](https://brasil.mapbiomas.org/downloads/codigos-de-legenda/)) no recorte lat −21,6 a −19,8, lon −52,9 a −51,4, só do lado de Mato Grosso do Sul, com 500 ha ou mais e a até 150 km da fábrica por estrada.
+
+- **Fonte:** MapBiomas Brasil, coleção 10, cobertura e uso da terra de 2024 (licença CC-BY-4.0). O arquivo público é lido por trechos, então só o recorte é baixado (~3 MB); não precisa de conta no Earth Engine.
+- **Limite de MS:** malha estadual do IBGE (`api/app/dados/limite_ms.geojson`).
+- **Processamento:** os talhões vizinhos são unidos (fechamento de 60 m), a geometria é simplificada em 30 m e as áreas ficam em `api/app/dados/areas_eucalipto.geojson`, que vai para o git. A subida só lê esse arquivo; nada externo é consultado.
+
+Para gerar de novo:
+
+```bash
+docker compose exec api python -m app.scripts.exportar_mapbiomas
+docker compose exec api python -m app.scripts.gerar_areas_eucalipto
+```
+
+Trocar as áreas exige zerar o banco, porque viagens e posições apontam para as fazendas antigas: `docker compose down`, `docker volume rm eucatrack_dados_db` e `docker compose up -d`.
+
 ## Testes
 
 ```bash
@@ -68,5 +85,5 @@ cd web && npm test
 
 - `api/` — FastAPI, PostGIS, telemetria e WebSocket da frota
 - `simulator/` — simula os 20 caminhões e envia telemetria para a API
-- `web/` — Next.js com MapLibre (mapa base OpenFreeMap, dados © OpenStreetMap) e o app do motorista (PWA)
+- `web/` — Next.js com MapLibre (mapa base OpenFreeMap, dados © OpenStreetMap; áreas de eucalipto © MapBiomas) e o app do motorista (PWA)
 - `infra/` — Nginx e inicialização do banco
