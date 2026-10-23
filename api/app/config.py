@@ -85,6 +85,10 @@ class Settings(BaseSettings):
     foco_fazenda_km: float = 5
     foco_rota_km: float = 3
     foco_vento_angulo_max: float = 45
+    inpe_focos_url: str = (
+        "https://dataserver-coids.inpe.br/queimadas/queimadas/focos/csv/diario/Brasil/"
+        "focos_diario_br_{data}.csv"
+    )
 
     # Rotas (SPEC seção 5)
     osrm_url: str = "https://router.project-osrm.org"
