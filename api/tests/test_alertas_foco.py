@@ -159,3 +159,22 @@ def test_mensagem_com_vento_vindo_do_foco(semeado, settings):
     atualizar_alertas_fazenda(semeado, settings, AGORA_REAL, INICIO)
     [alerta] = _alertas_da_fazenda(semeado, fazenda.id)
     assert alerta.mensagem.endswith("; vento das 13h sopra do foco para cá")
+
+
+def test_foco_na_rota_nao_reabre_na_volta_para_o_mesmo_foco(sessao, ids):
+    _foco(sessao, _ao_lado_da_rota(2))
+    c, f = ids["caminhoes"][0], ids["fazenda"]
+    _enviar(sessao, c, f, "EM_TRANSITO_CARREGADO", 0)
+    _enviar(sessao, c, f, "FILA_PATIO", 1)
+    _enviar(sessao, c, f, "EM_TRANSITO_VAZIO", 2)
+    assert [a.status for a in _alertas(sessao, "FOCO_PROXIMO_ROTA")] == ["FECHADO"]
+
+
+def test_foco_novo_na_rota_abre_de_novo(sessao, ids):
+    _foco(sessao, _ao_lado_da_rota(2), chave="primeiro")
+    c, f = ids["caminhoes"][0], ids["fazenda"]
+    _enviar(sessao, c, f, "EM_TRANSITO_CARREGADO", 0)
+    _enviar(sessao, c, f, "FILA_PATIO", 1)
+    _foco(sessao, _ao_lado_da_rota(1), chave="segundo")
+    _enviar(sessao, c, f, "EM_TRANSITO_VAZIO", 2)
+    assert [a.status for a in _alertas(sessao, "FOCO_PROXIMO_ROTA")] == ["FECHADO", "ABERTO"]

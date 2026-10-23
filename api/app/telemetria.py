@@ -8,13 +8,13 @@ from shapely.geometry import LineString, Point
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.alertas import FocoPerto, alertas_ativos
+from app.alertas import FocoPerto, TipoAlerta, alertas_ativos
 from app.config import Settings, get_settings
 from app.estados import Estado
 from app.eta import calcular_eta
 from app.geo import progresso_na_linha
 from app.focos import foco_perto_da_rota
-from app.modelos import Caminhao, EventoViagem, Fazenda, Posicao, Rota, Viagem
+from app.modelos import Alerta, Caminhao, EventoViagem, Fazenda, Posicao, Rota, Viagem
 from app.vigilancia import atualizar_alertas, locais, montar_situacao
 
 EM_TRANSITO = {Estado.EM_TRANSITO_CARREGADO, Estado.EM_TRANSITO_VAZIO}
@@ -180,6 +180,17 @@ def registrar_leituras(
             if rota is not None and leitura.estado in EM_TRANSITO
             else None
         )
+        # O alerta fecha fora do trânsito; na volta, o mesmo foco não abre outro
+        # (com o relógio 10x, seriam dezenas de alertas por foco ao longo de um dia).
+        if foco is not None and sessao.scalar(
+            select(Alerta.id).where(
+                Alerta.tipo == TipoAlerta.FOCO_PROXIMO_ROTA,
+                Alerta.caminhao_id == caminhao.id,
+                Alerta.foco_id == foco.foco_id,
+                Alerta.status == "FECHADO",
+            ).limit(1)
+        ):
+            foco = None
         situacao = montar_situacao(
             sessao, caminhao, leitura, rota[0] if rota else None, locais_parada, settings, foco
         )
