@@ -16,6 +16,7 @@ dependencies = [
   "python-multipart>=0.0.9",
   "rasterio>=1.4",
   "numpy>=2",
+  "apscheduler>=3.10,<4",
 ]
 
 [project.optional-dependencies]

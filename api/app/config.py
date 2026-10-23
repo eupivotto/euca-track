@@ -85,6 +85,8 @@ class Settings(BaseSettings):
     foco_fazenda_km: float = 5
     foco_rota_km: float = 3
     foco_vento_angulo_max: float = 45
+    rotina_clima_h: float = 3
+    rotina_focos_min: float = 30
     inpe_focos_url: str = (
         "https://dataserver-coids.inpe.br/queimadas/queimadas/focos/csv/diario/Brasil/"
         "focos_diario_br_{data}.csv"

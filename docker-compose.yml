@@ -48,6 +48,21 @@ services:
       preparo:
         condition: service_completed_successfully
 
+  # Único processo que fala com Open-Meteo e INPE: clima a cada 3 h, focos a cada 30 min.
+  rotinas:
+    build: ./api
+    command: python -m app.rotinas
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg://rota:rota@db:5432/rota
+    volumes:
+      - ./api:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      preparo:
+        condition: service_completed_successfully
+
   simulator:
     build: ./simulator
     command: python -m sim
