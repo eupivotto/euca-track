@@ -1,6 +1,6 @@
 # Rota da Madeira
 
-Painel de operações florestais em tempo real: caminhões levando madeira das fazendas até a fábrica, acompanhados ao vivo no mapa, com a meta do dia no topo.
+Painel de operações florestais em tempo real: caminhões levando madeira das fazendas até a fábrica, acompanhados ao vivo no mapa, com a meta do dia no topo, e o risco de incêndio de cada área com os focos de calor da região.
 
 Projeto de portfólio. Frota, motoristas e viagens são **dados simulados**; nenhum dado é de empresa real. As fazendas são áreas reais de plantio de eucalipto mapeadas pelo MapBiomas, com nomes genéricos e sem indicar proprietário. A especificação completa está em `docs/SPEC.md`.
 
@@ -21,7 +21,8 @@ As rotas vêm do servidor público do OSRM, só na primeira subida: para cada fa
 - **Ao vivo** — meta do dia, mapa e tabela da frota. Caminhões com alerta aberto vêm primeiro na tabela, destacados; os em trânsito mostram a chegada prevista (ETA).
 - **Pátio** — fila atual em ordem de chegada, vagas de descarga ocupadas e caminhões carregados que chegam nas próximas 2 h.
 - **Indicadores** — toneladas, viagens, ciclo médio, fila média e uso da frota, para hoje, 7 ou 30 dias.
-- **Alertas** — abertos e fechados, com "Ver no mapa" para o caminhão.
+- **Alertas** — abertos e fechados, de logística ou de fogo, com "Ver no mapa" para o caminhão ou a área.
+- **Risco** — a classe de risco de incêndio de cada área nos últimos 30 dias, com os dias de chuva marcados e a FMA de hoje.
 - **Replay** — o trajeto de uma viagem com a linha do tempo dos eventos.
 - **App do motorista** (`/motorista`) — feito para celular; veja a seção abaixo.
 
@@ -73,6 +74,16 @@ docker compose exec api python -m app.scripts.gerar_areas_eucalipto
 
 Trocar as áreas exige zerar o banco, porque viagens e posições apontam para as fazendas antigas: `docker compose down`, `docker volume rm eucatrack_dados_db` e `docker compose up -d`.
 
+## Risco de incêndio
+
+Clima e focos de calor são **dados reais**; só a frota é simulada.
+
+- **Fórmula de Monte Alegre (FMA):** Soares (1972), conforme descrita na Scientia Forestalis nº 87 (IPEF). Soma a cada dia `100 / umidade das 13h` e reduz ou zera o acumulado conforme a chuva do dia. Classes: nulo, pequeno, médio, alto e muito alto (limites em `api/app/config.py`).
+- **Clima:** [Open-Meteo](https://open-meteo.com/) no centro de cada área, umidade e vento das 13h e chuva do dia, no fuso de Campo Grande. Na primeira execução busca os últimos 60 dias pela API de histórico.
+- **Focos de calor:** [Programa Queimadas do INPE](https://terrabrasilis.dpi.inpe.br/queimadas/portal/), arquivo diário do Brasil, filtrado para a região. Alertas: foco a menos de 5 km de uma área (`Foco perto da área`) e a menos de 3 km da rota de um caminhão em trânsito (`Foco perto da rota`), com a distância, a hora da detecção e se o vento das 13h sopra do foco para lá.
+- **Serviço `rotinas`:** é o único processo que consulta essas fontes. Atualiza o clima e recalcula o risco a cada 3 horas e importa os focos a cada 30 minutos; se uma fonte estiver fora do ar, registra em `docker compose logs rotinas` e tenta de novo na próxima vez. A API só lê o banco, e o painel relê risco, focos e alertas a cada minuto.
+- **Dois relógios:** a frota roda no relógio simulado, 10× mais rápido, enquanto clima e focos seguem o relógio real. A janela dos focos ("últimas 24 h") e o risco "de hoje" usam a data e a hora reais. A hora dos alertas de fogo segue o relógio simulado, para ficarem em ordem com os de logística; a hora real da detecção vai no texto.
+
 ## Testes
 
 ```bash
@@ -83,7 +94,7 @@ cd web && npm test
 
 ## Estrutura
 
-- `api/` — FastAPI, PostGIS, telemetria e WebSocket da frota
+- `api/` — FastAPI, PostGIS, telemetria e WebSocket da frota; `app/rotinas.py` é o serviço agendado de clima e focos
 - `simulator/` — simula os 20 caminhões e envia telemetria para a API
-- `web/` — Next.js com MapLibre (mapa base OpenFreeMap, dados © OpenStreetMap; áreas de eucalipto © MapBiomas) e o app do motorista (PWA)
+- `web/` — Next.js com MapLibre (mapa base OpenFreeMap, dados © OpenStreetMap; áreas de eucalipto © MapBiomas; focos de calor: INPE) e o app do motorista (PWA)
 - `infra/` — Nginx e inicialização do banco
