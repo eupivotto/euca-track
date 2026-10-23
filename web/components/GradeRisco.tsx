@@ -29,8 +29,9 @@ export function GradeRisco({ historico }: { historico: HistoricoRisco }) {
       <p role="status" className="min-h-[1.5em] text-[12.5px] text-tinta-suave">
         {detalhe ?? "Passe o mouse ou use Tab nas células para ver cada dia."}
       </p>
-      {/* No celular a grade rola de lado dentro dela mesma; a página não. */}
-      <div className="overflow-x-auto pb-1">
+      {/* No celular a grade rola de lado dentro dela mesma; a página não. O relative prende
+          os rótulos sr-only (position: absolute) dentro da rolagem. */}
+      <div className="relative overflow-x-auto pb-1">
         <table className="numeros border-separate border-spacing-[2px] text-[12px]">
           <thead>
             <tr className="text-[10.5px] text-tinta-suave">
