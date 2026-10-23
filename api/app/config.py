@@ -76,6 +76,9 @@ class Settings(BaseSettings):
     fma_limite_pequeno: float = 3.0
     fma_limite_medio: float = 8.0
     fma_limite_alto: float = 20.0
+    open_meteo_url: str = "https://api.open-meteo.com/v1/forecast"
+    open_meteo_historico_url: str = "https://archive-api.open-meteo.com/v1/archive"
+    clima_backfill_dias: int = 60
 
     # Alertas de foco (SPEC seção 8): janela pelo relógio real, vento das 13h
     foco_janela_h: float = 24

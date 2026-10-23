@@ -1,7 +1,18 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from geoalchemy2 import Geometry
-from sqlalchemy import DateTime, Float, ForeignKey, Index, Integer, String, func, text
+from sqlalchemy import (
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    UniqueConstraint,
+    func,
+    text,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -148,3 +159,36 @@ class Ocorrencia(ComId, Base):
     id_local: Mapped[str] = mapped_column(String(36), unique=True)
 
     caminhao: Mapped[Caminhao] = relationship()
+
+
+class ClimaDiario(ComId, Base):
+    __tablename__ = "clima_diario"
+    fazenda_id: Mapped[int] = mapped_column(ForeignKey("fazendas.id"))
+    data: Mapped[date] = mapped_column(Date)
+    ur_13h: Mapped[float | None] = mapped_column(Float)
+    chuva_mm: Mapped[float | None] = mapped_column(Float)
+    vento_kmh: Mapped[float | None] = mapped_column(Float)
+    vento_dir: Mapped[float | None] = mapped_column(Float)
+
+    __table_args__ = (UniqueConstraint("fazenda_id", "data", name="uq_clima_diario_fazenda_data"),)
+
+
+class RiscoDiario(ComId, Base):
+    __tablename__ = "risco_diario"
+    fazenda_id: Mapped[int] = mapped_column(ForeignKey("fazendas.id"))
+    data: Mapped[date] = mapped_column(Date)
+    fma: Mapped[float] = mapped_column(Float)
+    classe: Mapped[str] = mapped_column(String(12))
+
+    __table_args__ = (UniqueConstraint("fazenda_id", "data", name="uq_risco_diario_fazenda_data"),)
+
+
+class FocoCalor(ComId, Base):
+    __tablename__ = "focos_calor"
+    geom = mapped_column(Geometry("POINT", srid=4326), nullable=False)
+    satelite: Mapped[str] = mapped_column(String(40))
+    detectado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    municipio: Mapped[str | None] = mapped_column(String(120))
+    chave: Mapped[str] = mapped_column(String(120), unique=True)
+
+    __table_args__ = (Index("ix_focos_calor_detectado_em", "detectado_em"),)

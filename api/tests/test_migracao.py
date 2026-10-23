@@ -64,3 +64,22 @@ def test_migracao_cria_checkins_e_ocorrencias(sessao):
     assert {"assumido_ate", "fazenda_destino_id"} <= {
         c["name"] for c in insp.get_columns("caminhoes")
     }
+
+
+def test_migracao_cria_tabelas_de_risco(sessao):
+    insp = inspect(sessao.connection())
+    assert {"fazenda_id", "data", "ur_13h", "chuva_mm", "vento_kmh", "vento_dir"} <= {
+        c["name"] for c in insp.get_columns("clima_diario")
+    }
+    assert {"fazenda_id", "data", "fma", "classe"} <= {
+        c["name"] for c in insp.get_columns("risco_diario")
+    }
+    assert {"geom", "satelite", "detectado_em", "municipio", "chave"} <= {
+        c["name"] for c in insp.get_columns("focos_calor")
+    }
+    for tabela in ("clima_diario", "risco_diario"):
+        unicas = [u["column_names"] for u in insp.get_unique_constraints(tabela)]
+        assert ["fazenda_id", "data"] in unicas
+    assert ["chave"] in [u["column_names"] for u in insp.get_unique_constraints("focos_calor")]
+    srid = sessao.execute(text("SELECT Find_SRID('public', 'focos_calor', 'geom')")).scalar()
+    assert srid == 4326
