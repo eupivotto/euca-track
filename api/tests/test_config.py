@@ -41,3 +41,9 @@ def test_parametros_das_areas_de_eucalipto():
     assert s.mapbiomas_classe == 9 and s.mapbiomas_url.endswith("brazil_coverage_2024.tif")
     assert (s.areas_min_ha, s.areas_raio_km, s.areas_maximo) == (500, 150, 8)
     assert (s.areas_fecho_m, s.areas_simplificar_m) == (60, 30)
+
+
+def test_limites_das_classes_da_fma():
+    s = Settings()
+    assert (s.fma_limite_nulo, s.fma_limite_pequeno) == (1.0, 3.0)
+    assert (s.fma_limite_medio, s.fma_limite_alto) == (8.0, 20.0)

@@ -71,6 +71,12 @@ class Settings(BaseSettings):
     areas_fecho_m: float = 60  # une talhões separados por aceiros e estradas internas
     areas_simplificar_m: float = 30
 
+    # Risco de incêndio (SPEC seção 7): limite superior de cada classe da FMA
+    fma_limite_nulo: float = 1.0
+    fma_limite_pequeno: float = 3.0
+    fma_limite_medio: float = 8.0
+    fma_limite_alto: float = 20.0
+
     # Rotas (SPEC seção 5)
     osrm_url: str = "https://router.project-osrm.org"
     fator_linha_reta: float = 1.3
