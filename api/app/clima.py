@@ -9,7 +9,7 @@ from datetime import date, timedelta
 
 import httpx
 from geoalchemy2.shape import to_shape
-from sqlalchemy import delete, exists, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
@@ -104,7 +104,8 @@ def importar_clima(
 ) -> list[str]:
     """Busca o clima de cada fazenda e recalcula o risco. Devolve avisos.
 
-    Sem nenhuma linha ainda, faz o backfill pelo histórico; sempre pede a
+    Sem nenhuma linha ainda, faz o backfill pelo histórico (e preenche pelo
+    histórico a lacuna de quando o painel ficou desligado); sempre pede a
     previsão com os últimos 3 dias, que substitui o que o histórico trouxe.
     """
     avisos: list[str] = []
@@ -118,14 +119,19 @@ def importar_clima(
 
     for fazenda in sessao.scalars(select(Fazenda).order_by(Fazenda.id)).all():
         centro = to_shape(fazenda.centro)
-        tem_clima = sessao.scalar(select(exists().where(ClimaDiario.fazenda_id == fazenda.id)))
+        ultima = sessao.scalar(
+            select(func.max(ClimaDiario.data)).where(ClimaDiario.fazenda_id == fazenda.id)
+        )
+        # Sem nada, os últimos 60 dias; depois de dias parado, só a lacuna que a previsão não cobre.
+        inicio_historico = (
+            hoje - timedelta(days=settings.clima_backfill_dias) if ultima is None else ultima + timedelta(days=1)
+        )
         try:
             dias: list[ClimaDia] = []
-            if not tem_clima:
+            if inicio_historico < hoje - timedelta(days=3):
                 pausar()
                 dias += buscar_clima(
-                    cliente, settings, centro.x, centro.y,
-                    hoje - timedelta(days=settings.clima_backfill_dias), hoje - timedelta(days=1),
+                    cliente, settings, centro.x, centro.y, inicio_historico, hoje - timedelta(days=1),
                     historico=True,
                 )
             pausar()

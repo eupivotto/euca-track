@@ -138,3 +138,29 @@ def test_falha_de_uma_fazenda_vira_aviso(semeado, settings):
     assert len(avisos) == 1 and primeira.nome in avisos[0]
     com_clima = semeado.scalar(select(func.count(func.distinct(ClimaDiario.fazenda_id))))
     assert com_clima == 7
+
+
+def test_lacuna_depois_de_dias_parado_e_preenchida(semeado, settings):
+    pedidos = []
+
+    def handler(request):
+        pedidos.append((request.url.path, dict(request.url.params)))
+        dados = HISTORICO if request.url.path.endswith("/archive") else PREVISAO
+        return httpx.Response(200, json=dados)
+
+    cliente = httpx.Client(transport=httpx.MockTransport(handler))
+    importar_clima(semeado, settings, cliente, HOJE, dormir=lambda s: None)
+    pedidos.clear()
+    # Painel desligado: a última linha gravada é de 23/10 e "hoje" agora é 02/11.
+    importar_clima(semeado, settings, cliente, date(2026, 11, 2), dormir=lambda s: None)
+    historicos = [p for caminho, p in pedidos if caminho == "/v1/archive"]
+    assert len(historicos) == 8
+    assert (historicos[0]["start_date"], historicos[0]["end_date"]) == ("2026-10-24", "2026-11-01")
+
+
+def test_sem_lacuna_nao_pede_historico(semeado, settings):
+    falso = OpenMeteoFalso()
+    _importar(semeado, settings, falso)
+    falso = OpenMeteoFalso()
+    importar_clima(semeado, settings, falso.cliente(), date(2026, 10, 26), dormir=lambda s: None)
+    assert falso.chamadas == ["/v1/forecast"] * 8
