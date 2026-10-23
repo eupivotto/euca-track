@@ -8,8 +8,9 @@ from shapely.geometry.base import BaseGeometry
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.alertas import EM_TRANSITO, Situacao, TipoAlerta
+from app.alertas import EM_TRANSITO, FocoPerto, Situacao, TipoAlerta
 from app.config import Settings
+from app.focos import texto_foco
 from app.geo import distancia_m, progresso_na_linha
 from app.modelos import Alerta, Caminhao, Fabrica, Fazenda, Posicao
 
@@ -50,6 +51,7 @@ def montar_situacao(
     rota: LineString | None,
     locais_parada: list[BaseGeometry],
     settings: Settings,
+    foco_rota: FocoPerto | None = None,
 ) -> Situacao:
     """Situação na leitura atual. Chamar depois de gravar a posição e atualizar o trecho."""
     ponto = Point(leitura.lon, leitura.lat)
@@ -87,6 +89,7 @@ def montar_situacao(
         eta_prevista=caminhao.eta_prevista,
         eta_atual=caminhao.eta_atual,
         distancia_rota_m=distancia_rota,
+        foco_rota=foco_rota if leitura.estado in EM_TRANSITO else None,
     )
 
 
@@ -101,6 +104,10 @@ def mensagem(tipo: TipoAlerta, s: Situacao, settings: Settings) -> str:
     if tipo == TipoAlerta.PARADA:
         minutos = round((s.momento - s.parado_desde).total_seconds() / 60)
         return f"Parado há {minutos} min fora de fazenda ou fábrica"
+    if tipo == TipoAlerta.FOCO_PROXIMO_ROTA:
+        f = s.foco_rota
+        referencia = f" da rota da {f.fazenda_nome}" if f.fazenda_nome else " da rota"
+        return texto_foco(f.distancia_m, f.detectado_em, f.a_favor, ZoneInfo(settings.fuso), referencia)
     if tipo == TipoAlerta.DESVIO_ROTA:
         return f"A {round(s.distancia_rota_m or 0)} m da rota"
     atraso = round((s.eta_atual - s.eta_prevista).total_seconds() / 60)
@@ -127,6 +134,7 @@ def atualizar_alertas(
             tipo=tipo,
             caminhao_id=caminhao.id,
             mensagem=mensagem(tipo, situacao, settings),
+            foco_id=situacao.foco_rota.foco_id if tipo == TipoAlerta.FOCO_PROXIMO_ROTA else None,
             aberto_em=situacao.momento,
             status="ABERTO",
         )

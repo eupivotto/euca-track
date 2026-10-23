@@ -1,6 +1,6 @@
 """Recebimento de telemetria: posições, viagens, trecho em trânsito e alertas."""
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from geoalchemy2.shape import from_shape, to_shape
 from pydantic import AwareDatetime, BaseModel
@@ -8,12 +8,13 @@ from shapely.geometry import LineString, Point
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.alertas import alertas_ativos
+from app.alertas import FocoPerto, alertas_ativos
 from app.config import Settings, get_settings
 from app.estados import Estado
 from app.eta import calcular_eta
 from app.geo import progresso_na_linha
-from app.modelos import Caminhao, EventoViagem, Posicao, Rota, Viagem
+from app.focos import foco_perto_da_rota
+from app.modelos import Caminhao, EventoViagem, Fazenda, Posicao, Rota, Viagem
 from app.vigilancia import atualizar_alertas, locais, montar_situacao
 
 EM_TRANSITO = {Estado.EM_TRANSITO_CARREGADO, Estado.EM_TRANSITO_VAZIO}
@@ -112,10 +113,18 @@ def _atualizar_trecho(
 
 
 def registrar_leituras(
-    sessao: Session, leituras: list[LeituraEntrada], settings: Settings | None = None
+    sessao: Session,
+    leituras: list[LeituraEntrada],
+    settings: Settings | None = None,
+    agora_real: datetime | None = None,
 ) -> LoteAplicado:
-    """Aplica o lote na ordem recebida."""
+    """Aplica o lote na ordem recebida.
+
+    `agora_real` é o relógio de verdade, para a janela dos focos (que são
+    reais); o resto da leitura segue o relógio simulado.
+    """
     settings = settings or get_settings()
+    agora_real = agora_real or datetime.now(timezone.utc)
     ids = {l.caminhao_id for l in leituras}
     caminhoes = {c.id: c for c in sessao.scalars(select(Caminhao).where(Caminhao.id.in_(ids)))}
     for leitura in leituras:
@@ -124,6 +133,16 @@ def registrar_leituras(
 
     rotas = _rotas(sessao)
     locais_parada = locais(sessao)
+    # Foco perto da rota, consultado uma vez por fazenda no lote.
+    focos_rota: dict[int, FocoPerto | None] = {}
+
+    def foco_da_rota(fazenda_id: int, linha: LineString) -> FocoPerto | None:
+        if fazenda_id not in focos_rota:
+            perto = foco_perto_da_rota(sessao, linha, fazenda_id, agora_real, settings)
+            if perto is not None:
+                perto.fazenda_nome = sessao.get(Fazenda, fazenda_id).nome
+            focos_rota[fazenda_id] = perto
+        return focos_rota[fazenda_id]
     lote = LoteAplicado()
     for leitura in leituras:
         caminhao = caminhoes[leitura.caminhao_id]
@@ -156,8 +175,13 @@ def registrar_leituras(
         )
         rota = rotas.get(leitura.fazenda_id)
         _atualizar_trecho(sessao, caminhao, leitura, entrou, rota, settings)
+        foco = (
+            foco_da_rota(leitura.fazenda_id, rota[0])
+            if rota is not None and leitura.estado in EM_TRANSITO
+            else None
+        )
         situacao = montar_situacao(
-            sessao, caminhao, leitura, rota[0] if rota else None, locais_parada, settings
+            sessao, caminhao, leitura, rota[0] if rota else None, locais_parada, settings, foco
         )
         for alerta in atualizar_alertas(
             sessao, caminhao, alertas_ativos(situacao, settings), situacao, settings

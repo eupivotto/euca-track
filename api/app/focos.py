@@ -7,14 +7,17 @@ from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import httpx
-from geoalchemy2.shape import from_shape
-from shapely.geometry import Point
-from sqlalchemy import exists, select
+from geoalchemy2.shape import from_shape, to_shape
+from shapely.geometry import LineString, Point
+from shapely.geometry.base import BaseGeometry
+from shapely.ops import nearest_points
+from sqlalchemy import exists, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
+from app.alertas import FocoPerto, TipoAlerta
 from app.config import Settings
-from app.modelos import FocoCalor
+from app.modelos import Alerta, ClimaDiario, Fazenda, FocoCalor
 
 
 def rumo_graus(de: tuple[float, float], para: tuple[float, float]) -> float:
@@ -38,10 +41,13 @@ def vento_a_favor(vento_dir: float | None, rumo_alvo_para_foco: float, angulo_ma
     return min(diferenca, 360 - diferenca) < angulo_max
 
 
-def texto_foco(distancia_m: float, detectado_em: datetime, a_favor: bool | None, fuso: ZoneInfo) -> str:
+def texto_foco(
+    distancia_m: float, detectado_em: datetime, a_favor: bool | None, fuso: ZoneInfo, referencia: str = "",
+) -> str:
+    """Mensagem do alerta; `referencia` vem logo depois da distância (" da rota da …")."""
     km = f"{distancia_m / 1000:.1f}".replace(".", ",")
     hora = detectado_em.astimezone(fuso).strftime("%Hh%M")
-    texto = f"Foco a {km} km, detectado às {hora}"
+    texto = f"Foco a {km} km{referencia}, detectado às {hora}"
     if a_favor is None:
         return texto
     return texto + ("; vento das 13h sopra do foco para cá" if a_favor else "; vento das 13h não sopra do foco para cá")
@@ -122,3 +128,101 @@ def importar_focos(
             novos += novo_id is not None
     sessao.flush()
     return novos, avisos
+
+
+# --- Alertas de foco perto da rota e da fazenda ---
+
+
+def _vento_13h(sessao: Session, fazenda_id: int, agora_real: datetime, settings: Settings) -> float | None:
+    """Direção do vento das 13h de hoje (data real local) na fazenda."""
+    hoje = agora_real.astimezone(ZoneInfo(settings.fuso)).date()
+    return sessao.scalar(
+        select(ClimaDiario.vento_dir).where(ClimaDiario.fazenda_id == fazenda_id, ClimaDiario.data == hoje)
+    )
+
+
+def _foco_mais_perto(
+    sessao: Session, alvo, raio_km: float, agora_real: datetime, settings: Settings,
+) -> tuple[FocoCalor, float] | None:
+    """Foco da janela mais perto de `alvo` (expressão de geometria 4326), a menos de `raio_km`."""
+    alvo_geo = func.geography(alvo)
+    foco_geo = func.geography(FocoCalor.geom)
+    distancia = func.ST_Distance(alvo_geo, foco_geo)
+    linha = sessao.execute(
+        select(FocoCalor, distancia)
+        .where(
+            FocoCalor.detectado_em >= agora_real - timedelta(hours=settings.foco_janela_h),
+            FocoCalor.detectado_em <= agora_real,
+            func.ST_DWithin(alvo_geo, foco_geo, raio_km * 1000),
+        )
+        .order_by(distancia, FocoCalor.id)
+        .limit(1)
+    ).first()
+    return (linha[0], float(linha[1])) if linha else None
+
+
+def _foco_perto(
+    sessao: Session, alvo_shape: BaseGeometry, alvo_sql, raio_km: float, fazenda_id: int,
+    agora_real: datetime, settings: Settings,
+) -> FocoPerto | None:
+    achado = _foco_mais_perto(sessao, alvo_sql, raio_km, agora_real, settings)
+    if achado is None:
+        return None
+    foco, distancia = achado
+    ponto_foco = to_shape(foco.geom)
+    # Rumo do ponto do alvo mais perto do foco até o foco; com o foco dentro, do centro do alvo.
+    origem = nearest_points(alvo_shape, ponto_foco)[0]
+    if origem.equals(ponto_foco):
+        origem = alvo_shape.centroid
+    a_favor = vento_a_favor(
+        _vento_13h(sessao, fazenda_id, agora_real, settings),
+        rumo_graus((origem.x, origem.y), (ponto_foco.x, ponto_foco.y)),
+        settings.foco_vento_angulo_max,
+    )
+    return FocoPerto(foco.id, distancia, foco.detectado_em, a_favor)
+
+
+def foco_perto_da_rota(
+    sessao: Session, rota_geom: LineString, fazenda_id: int, agora_real: datetime, settings: Settings,
+) -> FocoPerto | None:
+    """Foco das últimas horas a menos de `foco_rota_km` da rota (vento da fazenda da viagem)."""
+    alvo = func.ST_GeomFromText(rota_geom.wkt, 4326)
+    return _foco_perto(sessao, rota_geom, alvo, settings.foco_rota_km, fazenda_id, agora_real, settings)
+
+
+def atualizar_alertas_fazenda(
+    sessao: Session, settings: Settings, agora_real: datetime, agora_sim: datetime,
+) -> list[Alerta]:
+    """Abre FOCO_PROXIMO_FAZENDA onde há foco recente perto do polígono e fecha onde não há mais.
+
+    A janela dos focos usa o relógio real; abertura e fechamento, o simulado,
+    para a lista de alertas seguir em ordem com os de logística.
+    """
+    abertos = {
+        a.fazenda_id: a
+        for a in sessao.scalars(
+            select(Alerta).where(Alerta.tipo == TipoAlerta.FOCO_PROXIMO_FAZENDA, Alerta.status == "ABERTO")
+        )
+    }
+    fuso = ZoneInfo(settings.fuso)
+    mudaram: list[Alerta] = []
+    for fazenda in sessao.scalars(select(Fazenda).order_by(Fazenda.id)).all():
+        poligono = select(Fazenda.geom).where(Fazenda.id == fazenda.id).scalar_subquery()
+        perto = _foco_perto(
+            sessao, to_shape(fazenda.geom), poligono, settings.foco_fazenda_km, fazenda.id, agora_real, settings,
+        )
+        aberto = abertos.get(fazenda.id)
+        if perto is not None and aberto is None:
+            alerta = Alerta(
+                tipo=TipoAlerta.FOCO_PROXIMO_FAZENDA, fazenda_id=fazenda.id, foco_id=perto.foco_id,
+                mensagem=texto_foco(perto.distancia_m, perto.detectado_em, perto.a_favor, fuso),
+                aberto_em=agora_sim, status="ABERTO",
+            )
+            sessao.add(alerta)
+            mudaram.append(alerta)
+        elif perto is None and aberto is not None:
+            aberto.status = "FECHADO"
+            aberto.fechado_em = agora_sim
+            mudaram.append(aberto)
+    sessao.flush()
+    return mudaram

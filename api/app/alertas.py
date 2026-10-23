@@ -1,4 +1,4 @@
-"""Regras dos alertas de logística (SPEC seção 6). Funções puras, sem banco."""
+"""Regras dos alertas de logística e de foco na rota (SPEC seções 6 e 8). Funções puras, sem banco."""
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import StrEnum
@@ -14,6 +14,19 @@ class TipoAlerta(StrEnum):
     PARADA = "PARADA"
     DESVIO_ROTA = "DESVIO_ROTA"
     VELOCIDADE = "VELOCIDADE"
+    FOCO_PROXIMO_FAZENDA = "FOCO_PROXIMO_FAZENDA"
+    FOCO_PROXIMO_ROTA = "FOCO_PROXIMO_ROTA"
+
+
+@dataclass
+class FocoPerto:
+    """Foco de calor recente perto da rota (ou da fazenda), com o vento das 13h."""
+
+    foco_id: int
+    distancia_m: float
+    detectado_em: datetime
+    a_favor: bool | None
+    fazenda_nome: str | None = None
 
 
 @dataclass
@@ -34,6 +47,8 @@ class Situacao:
     eta_atual: datetime | None
     # Distância atual até a rota em uso, para a mensagem do desvio (None sem rota).
     distancia_rota_m: float | None = None
+    # Foco das últimas horas perto da rota em uso (só calculado em trânsito).
+    foco_rota: FocoPerto | None = None
 
 
 def alertas_ativos(s: Situacao, settings: Settings) -> set[TipoAlerta]:
@@ -52,6 +67,8 @@ def alertas_ativos(s: Situacao, settings: Settings) -> set[TipoAlerta]:
         ativos.add(TipoAlerta.PARADA)
     if s.fora_da_rota_seguidas >= settings.alerta_desvio_leituras:
         ativos.add(TipoAlerta.DESVIO_ROTA)
+    if s.foco_rota is not None:
+        ativos.add(TipoAlerta.FOCO_PROXIMO_ROTA)
     carencia = timedelta(minutes=settings.alerta_atraso_carencia_min)
     if s.inicio_trecho and s.eta_prevista and s.eta_atual and s.momento - s.inicio_trecho >= carencia:
         previsto = s.eta_prevista - s.inicio_trecho
