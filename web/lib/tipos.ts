@@ -8,7 +8,28 @@ export type Estado =
   | "DESCARGA"
   | "EM_TRANSITO_VAZIO";
 
-export type TipoAlerta = "ATRASO" | "PARADA" | "DESVIO_ROTA" | "VELOCIDADE";
+export type TipoAlerta =
+  | "ATRASO"
+  | "PARADA"
+  | "DESVIO_ROTA"
+  | "VELOCIDADE"
+  | "FOCO_PROXIMO_FAZENDA"
+  | "FOCO_PROXIMO_ROTA";
+
+export type ClasseRisco = "NULO" | "PEQUENO" | "MEDIO" | "ALTO" | "MUITO_ALTO";
+
+export type DiaRisco = {
+  data: string;
+  fma: number;
+  classe: ClasseRisco;
+  chuva_mm: number | null;
+  ur_13h: number | null;
+};
+
+export type HistoricoRisco = {
+  datas: string[];
+  fazendas: { fazenda_id: number; nome: string; dias: (DiaRisco | null)[] }[];
+};
 
 export type Posicao = {
   lon: number;

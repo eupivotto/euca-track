@@ -2,6 +2,7 @@ import type {
   Alerta,
   Caminhao,
   ColecaoGeo,
+  HistoricoRisco,
   Indicadores,
   Ocorrencia,
   PainelMotorista,
@@ -24,6 +25,8 @@ async function buscar<T>(caminho: string): Promise<T> {
 export const buscarCaminhoes = () => buscar<Caminhao[]>("/caminhoes");
 export const buscarFazendas = () => buscar<ColecaoGeo>("/fazendas");
 export const buscarRotas = () => buscar<ColecaoGeo>("/rotas");
+export const buscarFocos = (horas: number) => buscar<ColecaoGeo>(`/focos?horas=${horas}`);
+export const buscarHistoricoRisco = (dias = 30) => buscar<HistoricoRisco>(`/risco/historico?dias=${dias}`);
 export const buscarIndicadores = (dias = 1) => buscar<Indicadores>(`/indicadores?dias=${dias}`);
 export const buscarAlertas = (status: Alerta["status"]) => buscar<Alerta[]>(`/alertas?status=${status}`);
 export const buscarPatio = () => buscar<Patio>("/patio/fila");

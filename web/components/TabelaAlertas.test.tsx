@@ -42,4 +42,43 @@ describe("TabelaAlertas", () => {
     render(<TabelaAlertas alertas={[]} status="FECHADO" />);
     expect(screen.getByText("Nenhum alerta fechado.")).toBeInTheDocument();
   });
+
+  const FOGO_AREA: Alerta = {
+    ...ABERTO,
+    id: 2,
+    tipo: "FOCO_PROXIMO_FAZENDA",
+    caminhao_id: null,
+    placa: null,
+    fazenda_id: 3,
+    fazenda: "Área de eucalipto 03",
+    mensagem: "Foco a 3,0 km, detectado às 13h32",
+  };
+  const FOGO_ROTA: Alerta = { ...ABERTO, id: 3, tipo: "FOCO_PROXIMO_ROTA", mensagem: "Foco a 2,0 km da rota" };
+
+  it("filtro Fogo mostra só os alertas de foco", () => {
+    render(<TabelaAlertas alertas={[ABERTO, FOGO_AREA, FOGO_ROTA]} status="ABERTO" grupo="FOGO" />);
+    expect(screen.getAllByRole("row")).toHaveLength(3);
+    expect(screen.queryByText("Parada")).not.toBeInTheDocument();
+    expect(screen.getByText("Foco perto da área")).toBeInTheDocument();
+    expect(screen.getByText("Foco perto da rota")).toBeInTheDocument();
+  });
+
+  it("filtro Logística esconde os de foco", () => {
+    render(<TabelaAlertas alertas={[ABERTO, FOGO_AREA, FOGO_ROTA]} status="ABERTO" grupo="LOGISTICA" />);
+    expect(screen.getAllByRole("row")).toHaveLength(2);
+    expect(screen.getByText("Parada")).toBeInTheDocument();
+  });
+
+  it("alerta de área leva ao mapa enquadrando a área", () => {
+    render(<TabelaAlertas alertas={[FOGO_AREA]} status="ABERTO" />);
+    expect(screen.getByRole("link", { name: "Ver Área de eucalipto 03 no mapa" })).toHaveAttribute(
+      "href",
+      "/?fazenda=3",
+    );
+  });
+
+  it("filtro sem alertas do grupo diz isso", () => {
+    render(<TabelaAlertas alertas={[ABERTO]} status="ABERTO" grupo="FOGO" />);
+    expect(screen.getByText("Nenhum alerta aberto.")).toBeInTheDocument();
+  });
 });

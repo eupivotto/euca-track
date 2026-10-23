@@ -5,6 +5,8 @@ export const ROTULO_ALERTA: Record<TipoAlerta, string> = {
   PARADA: "Parada",
   DESVIO_ROTA: "Desvio de rota",
   VELOCIDADE: "Velocidade",
+  FOCO_PROXIMO_FAZENDA: "Foco perto da área",
+  FOCO_PROXIMO_ROTA: "Foco perto da rota",
 };
 
 // Rótulos pelo que quem acompanha a frota entende, não pelo nome do enum.

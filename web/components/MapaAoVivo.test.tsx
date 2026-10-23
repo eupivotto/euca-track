@@ -1,4 +1,4 @@
-import { act, render } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { caminhao } from "@/lib/fabricas.test-util";
 import type { ColecaoGeo } from "@/lib/tipos";
@@ -22,6 +22,10 @@ vi.mock("maplibre-gl", () => {
       fns.forEach((fn) => fn());
     }
     addControl() {}
+    addImage() {}
+    hasImage() {
+      return false;
+    }
     addLayer() {}
     addSource(id: string) {
       fontes[id] = { setData: vi.fn() };
@@ -34,7 +38,18 @@ vi.mock("maplibre-gl", () => {
     }
     remove() {}
   }
-  return { default: { Map: MapaFalso, NavigationControl: class {} } };
+  class PopupFalso {
+    setLngLat() {
+      return this;
+    }
+    setHTML() {
+      return this;
+    }
+    addTo() {
+      return this;
+    }
+  }
+  return { default: { Map: MapaFalso, NavigationControl: class {}, Popup: PopupFalso } };
 });
 
 import { MapaAoVivo } from "./MapaAoVivo";
@@ -57,5 +72,24 @@ describe("MapaAoVivo", () => {
     expect(fontes.fazendas.setData).toHaveBeenCalledTimes(1);
     expect(fontes.rotas.setData).toHaveBeenCalledTimes(1);
     expect(fontes.caminhoes.setData).toHaveBeenCalledTimes(3);
+  });
+
+  it("legenda lista as cinco classes de risco e o foco de calor", () => {
+    render(<MapaAoVivo fazendas={vazia} rotas={vazia} caminhoes={[]} selecionadoId={null} onSelecionar={() => {}} />);
+    for (const rotulo of ["Nulo", "Pequeno", "Médio", "Alto", "Muito alto", "Foco de calor"]) {
+      expect(screen.getByText(rotulo)).toBeInTheDocument();
+    }
+  });
+
+  it("focos vão para a própria fonte", () => {
+    const focos: ColecaoGeo = {
+      type: "FeatureCollection",
+      features: [{ type: "Feature", geometry: { type: "Point", coordinates: [-51.8, -20.7] }, properties: {} }],
+    };
+    render(
+      <MapaAoVivo fazendas={vazia} rotas={vazia} focos={focos} caminhoes={[]} selecionadoId={null} onSelecionar={() => {}} />,
+    );
+    act(() => aoCarregar?.());
+    expect(fontes.focos.setData).toHaveBeenCalledWith(focos);
   });
 });
