@@ -13,7 +13,7 @@ def test_fazendas_geojson(cliente, semeado):
     assert fab["geometry"]["coordinates"] == pytest.approx([-51.76, -20.62])
     faz = next(f for f in fc["features"] if f["properties"]["tipo"] == "fazenda")
     assert faz["geometry"]["type"] == "Polygon"
-    assert set(faz["properties"]) == {"id", "tipo", "nome", "area_ha"}
+    assert set(faz["properties"]) == {"id", "tipo", "nome", "area_ha", "classe", "fma"}
 
 
 def test_rotas_geojson(cliente, semeado_com_rota):
