@@ -77,6 +77,12 @@ class Settings(BaseSettings):
     fma_limite_medio: float = 8.0
     fma_limite_alto: float = 20.0
 
+    # Alertas de foco (SPEC seção 8): janela pelo relógio real, vento das 13h
+    foco_janela_h: float = 24
+    foco_fazenda_km: float = 5
+    foco_rota_km: float = 3
+    foco_vento_angulo_max: float = 45
+
     # Rotas (SPEC seção 5)
     osrm_url: str = "https://router.project-osrm.org"
     fator_linha_reta: float = 1.3
