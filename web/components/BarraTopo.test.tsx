@@ -21,11 +21,11 @@ describe("BarraTopo", () => {
   });
 });
 
-describe("BarraTopo na Fase 2", () => {
-  it("menu mostra as telas da fase 2 e marca a atual", () => {
+describe("BarraTopo na Fase 3", () => {
+  it("menu mostra as telas, com Risco antes de Replay, e marca a atual", () => {
     render(<BarraTopo ativa="/patio" />);
     const nomes = screen.getAllByRole("link").map((l) => l.textContent);
-    expect(nomes).toEqual(["Ao vivo", "Pátio", "Indicadores", "Alertas", "Replay"]);
+    expect(nomes).toEqual(["Ao vivo", "Pátio", "Indicadores", "Alertas", "Risco", "Replay"]);
     expect(screen.getByRole("link", { name: "Pátio" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Ao vivo" })).not.toHaveAttribute("aria-current");
   });
